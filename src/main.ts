@@ -1,7 +1,7 @@
 import { NestFactory } from '@nestjs/core';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
 import { AppLoggerService, createLogger } from './common/logger';
+import { setupSwagger } from './config/swagger.config';
 
 async function bootstrap() {
   const bootstrapLogger = createLogger('Bootstrap');
@@ -14,13 +14,7 @@ async function bootstrap() {
   const logger = app.get(AppLoggerService);
   app.useLogger(logger);
 
-  const config = new DocumentBuilder()
-    .setTitle('Hospital Management System')
-    .setDescription('Hospital management system')
-    .setVersion('1.0')
-    .build();
-  const documentFactory = () => SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, documentFactory);
+  setupSwagger(app);
 
   const port = Number(process.env.PORT ?? 3000);
   await app.listen(port);
