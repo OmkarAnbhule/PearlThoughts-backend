@@ -19,23 +19,24 @@ export function getMissingDatabaseEnvKeys(): string[] {
 }
 
 export function getDatabaseEnv(): DatabaseEnv {
-  const missing = getMissingDatabaseEnvKeys();
-  if (missing.length > 0) {
+  const host = process.env.DB_HOST?.trim();
+  const username = process.env.DB_USERNAME?.trim();
+  const password = process.env.DB_PASSWORD;
+  const database = process.env.DB_NAME?.trim();
+
+  if (!host || !username || !password?.trim() || !database) {
+    const missing = getMissingDatabaseEnvKeys();
     throw new Error(
       `Missing database env: ${missing.join(', ')}. Copy .env.example to .env and fill in your Supabase credentials.`,
     );
   }
 
-  console.log(
-    `Using database: ${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}/${process.env.DB_USERNAME}/${process.env.DB_PASSWORD}`,
-  );
-
   return {
-    host: process.env.DB_HOST.trim(),
+    host,
     port: Number(process.env.DB_PORT ?? 5432),
-    username: process.env.DB_USERNAME.trim(),
-    password: process.env.DB_PASSWORD,
-    database: process.env.DB_NAME.trim(),
+    username,
+    password,
+    database,
     ssl: process.env.DB_SSL !== 'false',
   };
 }
