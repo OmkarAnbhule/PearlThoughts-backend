@@ -6,7 +6,7 @@ NestJS API for the Hospital Management System, backed by PostgreSQL (Supabase).
 
 The entity-relationship diagram below shows the core data model for patients, clinical workflows, billing, and inventory.
 
-![ER diagram](./docs/er-diagram.png)
+<img width="1191" height="956" alt="er-diagram" src="https://github.com/user-attachments/assets/35022fa0-a7bc-491b-b9b1-660db6ca2aad" />
 
 ### Entities
 
