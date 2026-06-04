@@ -2,12 +2,14 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import { App } from 'supertest/types';
-import { AppModule } from './../src/app.module';
 
 describe('AppController (e2e)', () => {
   let app: INestApplication<App>;
 
   beforeAll(async () => {
+    process.env.SKIP_DATABASE = 'true';
+    const { AppModule } = await import('./../src/app.module');
+
     const moduleFixture = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
