@@ -9,6 +9,7 @@ import {
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
+import { DoctorAvailabilityEntry } from '../types/doctor-availability.type';
 import { User } from './user.entity';
 
 @Entity('doctor_profiles')
@@ -28,14 +29,26 @@ export class DoctorProfile {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column({ name: 'license_number', unique: true })
-  licenseNumber: string;
+  @Column({ name: 'profile_image_url', type: 'varchar', nullable: true })
+  profileImageUrl: string | null;
 
-  @Column()
-  specialization: string;
+  @Column({ name: 'license_number', type: 'varchar', unique: true, nullable: true })
+  licenseNumber: string | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  specialization: string | null;
 
   @Column({ name: 'years_of_experience', type: 'int', nullable: true })
   yearsOfExperience: number | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  achievements: string | null;
+
+  @Column({ type: 'text', array: true, nullable: true })
+  services: string[] | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  availability: DoctorAvailabilityEntry[] | null;
 
   @Column({ type: 'text', nullable: true })
   bio: string | null;
