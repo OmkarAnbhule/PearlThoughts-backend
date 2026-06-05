@@ -1,10 +1,16 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { UserType } from '../../common/enums/user-type.enum';
-import { toUserSummary } from './account.mapper';
+import {
+  toDoctorProfileResponse,
+  toPatientProfileResponse,
+  toUserSummary,
+} from './account.mapper';
 import { AuthService } from './auth/auth.service';
+import { DoctorProfileResponseDto } from './dto/doctor-profile.dto';
 import { LoginDto } from './dto/login.dto';
+import { PatientProfileResponseDto } from './dto/patient-profile.dto';
 import { AuthResponseDto } from './dto/profile-response.dto';
 import { SignupDto } from './dto/signup.dto';
 import { DoctorProfile } from './entities/doctor-profile.entity';
@@ -62,6 +68,32 @@ export class AccountService {
     );
 
     return this.buildAuthResponse(validatedUser);
+  }
+
+  async getDoctorProfile(userId: string): Promise<DoctorProfileResponseDto> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId, userType: UserType.Doctor },
+      relations: { doctorProfile: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Doctor profile not found');
+    }
+
+    return toDoctorProfileResponse(user);
+  }
+
+  async getPatientProfile(userId: string): Promise<PatientProfileResponseDto> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId, userType: UserType.Patient },
+      relations: { patientProfile: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Patient profile not found');
+    }
+
+    return toPatientProfileResponse(user);
   }
 
   private buildAuthResponse(user: User): AuthResponseDto {
