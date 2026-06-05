@@ -1,30 +1,15 @@
+import { Body, Controller, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import {
-  Body,
-  Controller,
-  Get,
-  HttpCode,
-  HttpStatus,
-  Post,
-  UseGuards,
-} from '@nestjs/common';
-import {
-  ApiBearerAuth,
   ApiCreatedResponse,
   ApiOkResponse,
   ApiOperation,
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
-import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AccountService } from './account.service';
-import { JwtAuthGuard } from './auth/jwt-auth.guard';
 import { LoginDto } from './dto/login.dto';
-import {
-  AuthResponseDto,
-  ProfileResponseDto,
-} from './dto/profile-response.dto';
+import { AuthResponseDto } from './dto/profile-response.dto';
 import { SignupDto } from './dto/signup.dto';
-import { User } from './entities/user.entity';
 
 @ApiTags('Account')
 @Controller('account')
@@ -45,15 +30,5 @@ export class AccountController {
   @ApiUnauthorizedResponse({ description: 'Invalid email or password' })
   login(@Body() dto: LoginDto): Promise<AuthResponseDto> {
     return this.accountService.login(dto);
-  }
-
-  @Get('profile')
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Get the authenticated user profile' })
-  @ApiOkResponse({ type: ProfileResponseDto })
-  @ApiUnauthorizedResponse({ description: 'Missing or invalid JWT' })
-  getProfile(@CurrentUser() user: User): Promise<ProfileResponseDto> {
-    return this.accountService.getProfile(user.id);
   }
 }

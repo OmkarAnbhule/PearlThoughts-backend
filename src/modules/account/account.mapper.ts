@@ -1,10 +1,9 @@
-import { UserType } from '../../common/enums/user-type.enum';
 import { DoctorProfile } from './entities/doctor-profile.entity';
 import { PatientProfile } from './entities/patient-profile.entity';
 import { User } from './entities/user.entity';
 import { DoctorProfileResponseDto } from './dto/doctor-profile.dto';
 import { PatientProfileResponseDto } from './dto/patient-profile.dto';
-import { ProfileResponseDto, UserSummaryDto } from './dto/profile-response.dto';
+import { UserSummaryDto } from './dto/profile-response.dto';
 
 export function toUserSummary(user: User): UserSummaryDto {
   return {
@@ -16,66 +15,45 @@ export function toUserSummary(user: User): UserSummaryDto {
   };
 }
 
-export function toDoctorProfileResponse(
-  profile: DoctorProfile,
-): DoctorProfileResponseDto {
-  return {
-    id: profile.id,
-    licenseNumber: profile.licenseNumber,
-    specialization: profile.specialization,
-    yearsOfExperience: profile.yearsOfExperience,
-    bio: profile.bio,
-    consultationFee: profile.consultationFee,
-    createdAt: profile.createdAt,
-    updatedAt: profile.updatedAt,
-  };
-}
+export function toDoctorProfileResponse(user: User): DoctorProfileResponseDto {
+  const profile = user.doctorProfile;
 
-export function toPatientProfileResponse(
-  profile: PatientProfile,
-): PatientProfileResponseDto {
   return {
-    id: profile.id,
-    bloodGroup: profile.bloodGroup,
-    emergencyContactName: profile.emergencyContactName,
-    emergencyContactPhone: profile.emergencyContactPhone,
-    allergies: profile.allergies,
-    medicalHistory: profile.medicalHistory,
-    insuranceProvider: profile.insuranceProvider,
-    insurancePolicyNumber: profile.insurancePolicyNumber,
-    createdAt: profile.createdAt,
-    updatedAt: profile.updatedAt,
-  };
-}
-
-export function toProfileResponse(user: User): ProfileResponseDto {
-  const response: ProfileResponseDto = {
     id: user.id,
     email: user.email,
-    userType: user.userType,
     firstName: user.firstName,
     lastName: user.lastName,
-    phone: user.phone,
-    dateOfBirth: user.dateOfBirth,
-    gender: user.gender,
-    addressLine1: user.addressLine1,
-    addressLine2: user.addressLine2,
-    city: user.city,
-    state: user.state,
-    postalCode: user.postalCode,
-    country: user.country,
-    isActive: user.isActive,
-    createdAt: user.createdAt,
-    updatedAt: user.updatedAt,
+    displayName: `Dr. ${user.firstName}`,
+    profileImageUrl: profile?.profileImageUrl ?? null,
+    specialization: profile?.specialization ?? null,
+    yearsOfExperience: profile?.yearsOfExperience ?? null,
+    achievements: profile?.achievements ?? null,
+    services: profile?.services ?? null,
+    availability: profile?.availability ?? null,
+    bio: profile?.bio ?? null,
+    licenseNumber: profile?.licenseNumber ?? null,
+    consultationFee: profile?.consultationFee ?? null,
+    createdAt: profile?.createdAt ?? user.createdAt,
+    updatedAt: profile?.updatedAt ?? user.updatedAt,
   };
+}
 
-  if (user.userType === UserType.Doctor && user.doctorProfile) {
-    response.doctorProfile = toDoctorProfileResponse(user.doctorProfile);
-  }
+export function toPatientProfileResponse(user: User): PatientProfileResponseDto {
+  const profile = user.patientProfile;
 
-  if (user.userType === UserType.Patient && user.patientProfile) {
-    response.patientProfile = toPatientProfileResponse(user.patientProfile);
-  }
-
-  return response;
+  return {
+    id: user.id,
+    email: user.email,
+    firstName: user.firstName,
+    lastName: user.lastName,
+    bloodGroup: profile?.bloodGroup ?? null,
+    emergencyContactName: profile?.emergencyContactName ?? null,
+    emergencyContactPhone: profile?.emergencyContactPhone ?? null,
+    allergies: profile?.allergies ?? null,
+    medicalHistory: profile?.medicalHistory ?? null,
+    insuranceProvider: profile?.insuranceProvider ?? null,
+    insurancePolicyNumber: profile?.insurancePolicyNumber ?? null,
+    createdAt: profile?.createdAt ?? user.createdAt,
+    updatedAt: profile?.updatedAt ?? user.updatedAt,
+  };
 }

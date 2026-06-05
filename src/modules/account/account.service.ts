@@ -1,19 +1,18 @@
-import {
-  BadRequestException,
-  Injectable,
-  UnauthorizedException,
-} from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { UserType } from '../../common/enums/user-type.enum';
-import { AuthService } from './auth/auth.service';
-import { LoginDto } from './dto/login.dto';
 import {
-  AuthResponseDto,
-  ProfileResponseDto,
-} from './dto/profile-response.dto';
+  toDoctorProfileResponse,
+  toPatientProfileResponse,
+  toUserSummary,
+} from './account.mapper';
+import { AuthService } from './auth/auth.service';
+import { DoctorProfileResponseDto } from './dto/doctor-profile.dto';
+import { LoginDto } from './dto/login.dto';
+import { PatientProfileResponseDto } from './dto/patient-profile.dto';
+import { AuthResponseDto } from './dto/profile-response.dto';
 import { SignupDto } from './dto/signup.dto';
-import { toProfileResponse, toUserSummary } from './account.mapper';
 import { DoctorProfile } from './entities/doctor-profile.entity';
 import { PatientProfile } from './entities/patient-profile.entity';
 import { User } from './entities/user.entity';
@@ -25,15 +24,9 @@ export class AccountService {
     private readonly authService: AuthService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(DoctorProfile)
-    private readonly doctorProfileRepository: Repository<DoctorProfile>,
-    @InjectRepository(PatientProfile)
-    private readonly patientProfileRepository: Repository<PatientProfile>,
   ) {}
 
   async signup(dto: SignupDto): Promise<AuthResponseDto> {
-    this.validateSignupProfiles(dto);
-
     const passwordHash = await this.authService.hashPassword(dto.password);
 
     const user = await this.dataSource.transaction(async (manager) => {
@@ -44,50 +37,18 @@ export class AccountService {
         userType: dto.userType,
         firstName: dto.firstName,
         lastName: dto.lastName,
-        phone: dto.phone ?? null,
-        dateOfBirth: dto.dateOfBirth ?? null,
-        gender: dto.gender ?? null,
-        addressLine1: dto.addressLine1 ?? null,
-        addressLine2: dto.addressLine2 ?? null,
-        city: dto.city ?? null,
-        state: dto.state ?? null,
-        postalCode: dto.postalCode ?? null,
-        country: dto.country ?? 'IN',
       });
 
       const savedUser = await userRepo.save(createdUser);
 
-      if (dto.userType === UserType.Doctor && dto.doctorProfile) {
+      if (dto.userType === UserType.Doctor) {
         const doctorRepo = manager.getRepository(DoctorProfile);
-        const doctorProfile = doctorRepo.create({
-          userId: savedUser.id,
-          licenseNumber: dto.doctorProfile.licenseNumber,
-          specialization: dto.doctorProfile.specialization,
-          yearsOfExperience: dto.doctorProfile.yearsOfExperience ?? null,
-          bio: dto.doctorProfile.bio ?? null,
-          consultationFee:
-            dto.doctorProfile.consultationFee != null
-              ? dto.doctorProfile.consultationFee.toFixed(2)
-              : null,
-        });
-        await doctorRepo.save(doctorProfile);
+        await doctorRepo.save(doctorRepo.create({ userId: savedUser.id }));
       }
 
-      if (dto.userType === UserType.Patient && dto.patientProfile) {
+      if (dto.userType === UserType.Patient) {
         const patientRepo = manager.getRepository(PatientProfile);
-        const patientProfile = patientRepo.create({
-          userId: savedUser.id,
-          bloodGroup: dto.patientProfile.bloodGroup ?? null,
-          emergencyContactName: dto.patientProfile.emergencyContactName ?? null,
-          emergencyContactPhone:
-            dto.patientProfile.emergencyContactPhone ?? null,
-          allergies: dto.patientProfile.allergies ?? null,
-          medicalHistory: dto.patientProfile.medicalHistory ?? null,
-          insuranceProvider: dto.patientProfile.insuranceProvider ?? null,
-          insurancePolicyNumber:
-            dto.patientProfile.insurancePolicyNumber ?? null,
-        });
-        await patientRepo.save(patientProfile);
+        await patientRepo.save(patientRepo.create({ userId: savedUser.id }));
       }
 
       return savedUser;
@@ -109,34 +70,30 @@ export class AccountService {
     return this.buildAuthResponse(validatedUser);
   }
 
-  async getProfile(userId: string): Promise<ProfileResponseDto> {
+  async getDoctorProfile(userId: string): Promise<DoctorProfileResponseDto> {
     const user = await this.userRepository.findOne({
-      where: { id: userId },
-      relations: {
-        doctorProfile: true,
-        patientProfile: true,
-      },
+      where: { id: userId, userType: UserType.Doctor },
+      relations: { doctorProfile: true },
     });
 
     if (!user) {
-      throw new UnauthorizedException('User account is inactive or not found');
+      throw new NotFoundException('Doctor profile not found');
     }
 
-    return toProfileResponse(user);
+    return toDoctorProfileResponse(user);
   }
 
-  private validateSignupProfiles(dto: SignupDto): void {
-    if (dto.userType === UserType.Doctor && !dto.doctorProfile) {
-      throw new BadRequestException(
-        'doctorProfile is required when userType is doctor',
-      );
+  async getPatientProfile(userId: string): Promise<PatientProfileResponseDto> {
+    const user = await this.userRepository.findOne({
+      where: { id: userId, userType: UserType.Patient },
+      relations: { patientProfile: true },
+    });
+
+    if (!user) {
+      throw new NotFoundException('Patient profile not found');
     }
 
-    if (dto.userType === UserType.Patient && !dto.patientProfile) {
-      throw new BadRequestException(
-        'patientProfile is required when userType is patient',
-      );
-    }
+    return toPatientProfileResponse(user);
   }
 
   private buildAuthResponse(user: User): AuthResponseDto {
