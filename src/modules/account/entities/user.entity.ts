@@ -1,4 +1,5 @@
 import { randomUUID } from 'crypto';
+import { Exclude } from 'class-transformer';
 import {
   BeforeInsert,
   Column,
@@ -26,6 +27,7 @@ export class User {
   @Column({ unique: true })
   email: string;
 
+  @Exclude()
   @Column({ name: 'password_hash' })
   passwordHash: string;
 
