@@ -5,6 +5,9 @@ import { AppService } from './app.service';
 import { LoggerModule } from './common/logger';
 import databaseConfig from './config/database.config';
 import { DatabaseModule, databaseConfigModule } from './database/database.module';
+import { AccountPersistenceModule } from './modules/account/account-persistence.module';
+
+const databaseEnabled = process.env.SKIP_DATABASE !== 'true';
 
 @Module({
   imports: [
@@ -15,6 +18,7 @@ import { DatabaseModule, databaseConfigModule } from './database/database.module
     }),
     databaseConfigModule,
     DatabaseModule.forRoot(),
+    ...(databaseEnabled ? [AccountPersistenceModule] : []),
   ],
   controllers: [AppController],
   providers: [AppService],
