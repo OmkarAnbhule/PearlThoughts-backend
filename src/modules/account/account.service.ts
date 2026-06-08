@@ -1,19 +1,29 @@
 import {
   BadRequestException,
+  ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, EntityManager, Repository } from 'typeorm';
 import { UserType } from '../../common/enums/user-type.enum';
+import { toProfileResponse, toUserSummary } from './account.mapper';
 import { AuthService } from './auth/auth.service';
+import {
+  CreateDoctorProfileDto,
+  UpdateDoctorProfileDto,
+} from './dto/doctor-profile.dto';
 import { LoginDto } from './dto/login.dto';
+import {
+  CreatePatientProfileDto,
+  UpdatePatientProfileDto,
+} from './dto/patient-profile.dto';
 import {
   AuthResponseDto,
   ProfileResponseDto,
 } from './dto/profile-response.dto';
 import { SignupDto } from './dto/signup.dto';
-import { toProfileResponse, toUserSummary } from './account.mapper';
 import { DoctorProfile } from './entities/doctor-profile.entity';
 import { PatientProfile } from './entities/patient-profile.entity';
 import { User } from './entities/user.entity';
@@ -25,15 +35,9 @@ export class AccountService {
     private readonly authService: AuthService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
-    @InjectRepository(DoctorProfile)
-    private readonly doctorProfileRepository: Repository<DoctorProfile>,
-    @InjectRepository(PatientProfile)
-    private readonly patientProfileRepository: Repository<PatientProfile>,
   ) {}
 
   async signup(dto: SignupDto): Promise<AuthResponseDto> {
-    this.validateSignupProfiles(dto);
-
     const passwordHash = await this.authService.hashPassword(dto.password);
 
     const user = await this.dataSource.transaction(async (manager) => {
@@ -42,52 +46,21 @@ export class AccountService {
         email: dto.email.toLowerCase(),
         passwordHash,
         userType: dto.userType,
-        firstName: dto.firstName,
-        lastName: dto.lastName,
-        phone: dto.phone ?? null,
-        dateOfBirth: dto.dateOfBirth ?? null,
-        gender: dto.gender ?? null,
-        addressLine1: dto.addressLine1 ?? null,
-        addressLine2: dto.addressLine2 ?? null,
-        city: dto.city ?? null,
-        state: dto.state ?? null,
-        postalCode: dto.postalCode ?? null,
-        country: dto.country ?? 'IN',
+        firstName: null,
+        lastName: null,
+        country: 'IN',
       });
 
       const savedUser = await userRepo.save(createdUser);
 
-      if (dto.userType === UserType.Doctor && dto.doctorProfile) {
+      if (dto.userType === UserType.Doctor) {
         const doctorRepo = manager.getRepository(DoctorProfile);
-        const doctorProfile = doctorRepo.create({
-          userId: savedUser.id,
-          licenseNumber: dto.doctorProfile.licenseNumber,
-          specialization: dto.doctorProfile.specialization,
-          yearsOfExperience: dto.doctorProfile.yearsOfExperience ?? null,
-          bio: dto.doctorProfile.bio ?? null,
-          consultationFee:
-            dto.doctorProfile.consultationFee != null
-              ? dto.doctorProfile.consultationFee.toFixed(2)
-              : null,
-        });
-        await doctorRepo.save(doctorProfile);
+        await doctorRepo.save(doctorRepo.create({ userId: savedUser.id }));
       }
 
-      if (dto.userType === UserType.Patient && dto.patientProfile) {
+      if (dto.userType === UserType.Patient) {
         const patientRepo = manager.getRepository(PatientProfile);
-        const patientProfile = patientRepo.create({
-          userId: savedUser.id,
-          bloodGroup: dto.patientProfile.bloodGroup ?? null,
-          emergencyContactName: dto.patientProfile.emergencyContactName ?? null,
-          emergencyContactPhone:
-            dto.patientProfile.emergencyContactPhone ?? null,
-          allergies: dto.patientProfile.allergies ?? null,
-          medicalHistory: dto.patientProfile.medicalHistory ?? null,
-          insuranceProvider: dto.patientProfile.insuranceProvider ?? null,
-          insurancePolicyNumber:
-            dto.patientProfile.insurancePolicyNumber ?? null,
-        });
-        await patientRepo.save(patientProfile);
+        await patientRepo.save(patientRepo.create({ userId: savedUser.id }));
       }
 
       return savedUser;
@@ -110,13 +83,7 @@ export class AccountService {
   }
 
   async getProfile(userId: string): Promise<ProfileResponseDto> {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-      relations: {
-        doctorProfile: true,
-        patientProfile: true,
-      },
-    });
+    const user = await this.loadUserWithProfiles(userId);
 
     if (!user) {
       throw new UnauthorizedException('User account is inactive or not found');
@@ -125,17 +92,241 @@ export class AccountService {
     return toProfileResponse(user);
   }
 
-  private validateSignupProfiles(dto: SignupDto): void {
-    if (dto.userType === UserType.Doctor && !dto.doctorProfile) {
-      throw new BadRequestException(
-        'doctorProfile is required when userType is doctor',
-      );
-    }
+  async createDoctorProfile(
+    userId: string,
+    dto: CreateDoctorProfileDto,
+  ): Promise<ProfileResponseDto> {
+    await this.dataSource.transaction(async (manager) => {
+      const user = await this.loadUserWithProfiles(userId, manager);
 
-    if (dto.userType === UserType.Patient && !dto.patientProfile) {
-      throw new BadRequestException(
-        'patientProfile is required when userType is patient',
-      );
+      if (!user?.doctorProfile) {
+        throw new NotFoundException('Doctor profile not found');
+      }
+
+      if (this.isDoctorProfileComplete(user, user.doctorProfile)) {
+        throw new ConflictException('Doctor profile already exists');
+      }
+
+      user.firstName = dto.firstName;
+      user.lastName = dto.lastName;
+      this.applyDoctorProfileFields(user.doctorProfile, dto);
+
+      await manager.getRepository(User).save(user);
+      await manager.getRepository(DoctorProfile).save(user.doctorProfile);
+    });
+
+    return toProfileResponse(await this.requireUserWithProfiles(userId));
+  }
+
+  async updateDoctorProfile(
+    userId: string,
+    dto: UpdateDoctorProfileDto,
+  ): Promise<ProfileResponseDto> {
+    await this.dataSource.transaction(async (manager) => {
+      const user = await this.loadUserWithProfiles(userId, manager);
+
+      if (!user?.doctorProfile) {
+        throw new NotFoundException('Doctor profile not found');
+      }
+
+      if (!this.isDoctorProfileComplete(user, user.doctorProfile)) {
+        throw new BadRequestException(
+          'Complete doctor profile before updating',
+        );
+      }
+
+      this.applyDoctorUserFields(user, dto);
+      this.applyDoctorProfileFields(user.doctorProfile, dto);
+
+      await manager.getRepository(User).save(user);
+      await manager.getRepository(DoctorProfile).save(user.doctorProfile);
+    });
+
+    return toProfileResponse(await this.requireUserWithProfiles(userId));
+  }
+
+  async createPatientProfile(
+    userId: string,
+    dto: CreatePatientProfileDto,
+  ): Promise<ProfileResponseDto> {
+    await this.dataSource.transaction(async (manager) => {
+      const user = await this.loadUserWithProfiles(userId, manager);
+
+      if (!user?.patientProfile) {
+        throw new NotFoundException('Patient profile not found');
+      }
+
+      if (this.isPatientProfileComplete(user)) {
+        throw new ConflictException('Patient profile already exists');
+      }
+
+      this.applyPatientUserFields(user, dto);
+      this.applyPatientProfileFields(user.patientProfile, dto);
+
+      await manager.getRepository(User).save(user);
+      await manager.getRepository(PatientProfile).save(user.patientProfile);
+    });
+
+    return toProfileResponse(await this.requireUserWithProfiles(userId));
+  }
+
+  async updatePatientProfile(
+    userId: string,
+    dto: UpdatePatientProfileDto,
+  ): Promise<ProfileResponseDto> {
+    await this.dataSource.transaction(async (manager) => {
+      const user = await this.loadUserWithProfiles(userId, manager);
+
+      if (!user?.patientProfile) {
+        throw new NotFoundException('Patient profile not found');
+      }
+
+      if (!this.isPatientProfileComplete(user)) {
+        throw new BadRequestException(
+          'Complete patient profile before updating',
+        );
+      }
+
+      this.applyPatientUserFields(user, dto);
+      this.applyPatientProfileFields(user.patientProfile, dto);
+
+      await manager.getRepository(User).save(user);
+      await manager.getRepository(PatientProfile).save(user.patientProfile);
+    });
+
+    return toProfileResponse(await this.requireUserWithProfiles(userId));
+  }
+
+  private async requireUserWithProfiles(userId: string): Promise<User> {
+    const user = await this.loadUserWithProfiles(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
+  }
+
+  private async loadUserWithProfiles(
+    userId: string,
+    manager?: EntityManager,
+  ): Promise<User | null> {
+    const repo = manager ? manager.getRepository(User) : this.userRepository;
+
+    return repo.findOne({
+      where: { id: userId },
+      relations: {
+        doctorProfile: true,
+        patientProfile: true,
+      },
+    });
+  }
+
+  private isDoctorProfileComplete(
+    user: User,
+    profile: DoctorProfile,
+  ): boolean {
+    return (
+      user.firstName != null &&
+      user.lastName != null &&
+      profile.specialization != null &&
+      profile.qualification != null &&
+      profile.yearsOfExperience != null &&
+      profile.consultationFee != null &&
+      profile.availability != null &&
+      profile.availability.length > 0
+    );
+  }
+
+  private isPatientProfileComplete(user: User): boolean {
+    return (
+      user.firstName != null &&
+      user.lastName != null &&
+      user.dateOfBirth != null &&
+      user.gender != null &&
+      user.phone != null
+    );
+  }
+
+  private applyDoctorUserFields(
+    user: User,
+    dto: UpdateDoctorProfileDto,
+  ): void {
+    if (dto.firstName !== undefined) {
+      user.firstName = dto.firstName;
+    }
+    if (dto.lastName !== undefined) {
+      user.lastName = dto.lastName;
+    }
+  }
+
+  private applyDoctorProfileFields(
+    profile: DoctorProfile,
+    dto: CreateDoctorProfileDto | UpdateDoctorProfileDto,
+  ): void {
+    if (dto.specialization !== undefined) {
+      profile.specialization = dto.specialization;
+    }
+    if (dto.qualification !== undefined) {
+      profile.qualification = dto.qualification;
+    }
+    if (dto.yearsOfExperience !== undefined) {
+      profile.yearsOfExperience = dto.yearsOfExperience;
+    }
+    if (dto.bio !== undefined) {
+      profile.bio = dto.bio;
+    }
+    if (dto.consultationFee !== undefined) {
+      profile.consultationFee = dto.consultationFee.toFixed(2);
+    }
+    if (dto.availability !== undefined) {
+      profile.availability = dto.availability;
+    }
+  }
+
+  private applyPatientUserFields(
+    user: User,
+    dto: CreatePatientProfileDto | UpdatePatientProfileDto,
+  ): void {
+    if (dto.firstName !== undefined) {
+      user.firstName = dto.firstName;
+    }
+    if (dto.lastName !== undefined) {
+      user.lastName = dto.lastName;
+    }
+    if (dto.dateOfBirth !== undefined) {
+      user.dateOfBirth = dto.dateOfBirth;
+    }
+    if (dto.gender !== undefined) {
+      user.gender = dto.gender;
+    }
+    if (dto.phone !== undefined) {
+      user.phone = dto.phone;
+    }
+  }
+
+  private applyPatientProfileFields(
+    profile: PatientProfile,
+    dto: CreatePatientProfileDto | UpdatePatientProfileDto,
+  ): void {
+    if (dto.bloodGroup !== undefined) {
+      profile.bloodGroup = dto.bloodGroup;
+    }
+    if (dto.emergencyContactName !== undefined) {
+      profile.emergencyContactName = dto.emergencyContactName;
+    }
+    if (dto.emergencyContactPhone !== undefined) {
+      profile.emergencyContactPhone = dto.emergencyContactPhone;
+    }
+    if (dto.allergies !== undefined) {
+      profile.allergies = dto.allergies;
+    }
+    if (dto.medicalHistory !== undefined) {
+      profile.medicalHistory = dto.medicalHistory;
+    }
+    if (dto.insuranceProvider !== undefined) {
+      profile.insuranceProvider = dto.insuranceProvider;
+    }
+    if (dto.insurancePolicyNumber !== undefined) {
+      profile.insurancePolicyNumber = dto.insurancePolicyNumber;
     }
   }
 

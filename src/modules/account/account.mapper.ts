@@ -6,6 +6,26 @@ import { DoctorProfileResponseDto } from './dto/doctor-profile.dto';
 import { PatientProfileResponseDto } from './dto/patient-profile.dto';
 import { ProfileResponseDto, UserSummaryDto } from './dto/profile-response.dto';
 
+export function computeAge(dateOfBirth: string | null): number | null {
+  if (!dateOfBirth) {
+    return null;
+  }
+
+  const birthDate = new Date(dateOfBirth);
+  const today = new Date();
+  let age = today.getFullYear() - birthDate.getFullYear();
+  const monthDiff = today.getMonth() - birthDate.getMonth();
+
+  if (
+    monthDiff < 0 ||
+    (monthDiff === 0 && today.getDate() < birthDate.getDate())
+  ) {
+    age -= 1;
+  }
+
+  return age >= 0 ? age : null;
+}
+
 export function toUserSummary(user: User): UserSummaryDto {
   return {
     id: user.id,
@@ -21,11 +41,12 @@ export function toDoctorProfileResponse(
 ): DoctorProfileResponseDto {
   return {
     id: profile.id,
-    licenseNumber: profile.licenseNumber,
     specialization: profile.specialization,
+    qualification: profile.qualification,
     yearsOfExperience: profile.yearsOfExperience,
     bio: profile.bio,
     consultationFee: profile.consultationFee,
+    availability: profile.availability,
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt,
   };
@@ -57,6 +78,7 @@ export function toProfileResponse(user: User): ProfileResponseDto {
     lastName: user.lastName,
     phone: user.phone,
     dateOfBirth: user.dateOfBirth,
+    age: computeAge(user.dateOfBirth),
     gender: user.gender,
     addressLine1: user.addressLine1,
     addressLine2: user.addressLine2,

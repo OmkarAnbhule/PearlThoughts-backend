@@ -14,11 +14,11 @@ export class UserSummaryDto {
   @ApiProperty({ enum: UserType })
   userType: UserType;
 
-  @ApiProperty()
-  firstName: string;
+  @ApiPropertyOptional()
+  firstName: string | null;
 
-  @ApiProperty()
-  lastName: string;
+  @ApiPropertyOptional()
+  lastName: string | null;
 }
 
 export class AuthResponseDto {
@@ -39,17 +39,20 @@ export class ProfileResponseDto {
   @ApiProperty({ enum: UserType })
   userType: UserType;
 
-  @ApiProperty()
-  firstName: string;
+  @ApiPropertyOptional()
+  firstName: string | null;
 
-  @ApiProperty()
-  lastName: string;
+  @ApiPropertyOptional()
+  lastName: string | null;
 
   @ApiPropertyOptional()
   phone: string | null;
 
   @ApiPropertyOptional()
   dateOfBirth: string | null;
+
+  @ApiPropertyOptional({ description: 'Derived from dateOfBirth' })
+  age: number | null;
 
   @ApiPropertyOptional({ enum: Gender })
   gender: Gender | null;
