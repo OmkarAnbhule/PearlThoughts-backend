@@ -15,6 +15,8 @@ export default registerAs('database', (): TypeOrmModuleOptions => {
     ssl: db.ssl ? { rejectUnauthorized: false } : false,
     autoLoadEntities: true,
     synchronize: process.env.NODE_ENV !== 'production',
+    migrations: [`${__dirname}/../database/migrations/*.{ts,js}`],
+    migrationsRun: process.env.NODE_ENV === 'production',
     extra: {
       max: Number(process.env.DATABASE_POOL_MAX ?? 10),
     },
