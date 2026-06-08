@@ -1,6 +1,27 @@
-import { startLocalServer } from './bootstrap';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { NestFactory } from '@nestjs/core';
+import { createNestApp, startLocalServer } from './bootstrap';
 
-startLocalServer().catch((error: unknown) => {
-  console.error('Failed to start application', error);
-  process.exit(1);
-});
+// Satisfies Vercel NestJS entrypoint detection (must import @nestjs/* in main.ts).
+void NestFactory;
+
+const isVercel =
+  process.env.VERCEL === '1' ||
+  process.env.VERCEL === 'true' ||
+  Boolean(process.env.VERCEL_URL);
+
+if (!isVercel) {
+  startLocalServer().catch((error: unknown) => {
+    console.error('Failed to start application', error);
+    process.exit(1);
+  });
+}
+
+export default async function handler(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
+  const app = await createNestApp();
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp(req, res);
+}
