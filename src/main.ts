@@ -1,23 +1,20 @@
-import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { AppLoggerService, createLogger } from './common/logger';
-import { setupSwagger } from './config/swagger.config';
+import type { IncomingMessage, ServerResponse } from 'node:http';
+import { createNestApp, startLocalServer } from './bootstrap';
 
-async function bootstrap() {
-  const bootstrapLogger = createLogger('Bootstrap');
+const isVercel = process.env.VERCEL === '1';
 
-  const app = await NestFactory.create(AppModule, {
-    bufferLogs: true,
-    logger: bootstrapLogger,
+if (!isVercel) {
+  startLocalServer().catch((error: unknown) => {
+    console.error('Failed to start application', error);
+    process.exit(1);
   });
-
-  const logger = app.get(AppLoggerService);
-  app.useLogger(logger);
-
-  setupSwagger(app);
-
-  const port = Number(process.env.PORT ?? 3000);
-  await app.listen(port);
-  logger.log(`Application listening on port ${port}`);
 }
-bootstrap();
+
+export default async function handler(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
+  const app = await createNestApp();
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp(req, res);
+}
