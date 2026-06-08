@@ -14,7 +14,7 @@ export default registerAs('database', (): TypeOrmModuleOptions => {
     database: db.database,
     ssl: db.ssl ? { rejectUnauthorized: false } : false,
     autoLoadEntities: true,
-    synchronize: process.env.NODE_ENV !== 'production',
+    synchronize: false,
     extra: {
       max: Number(process.env.DATABASE_POOL_MAX ?? 10),
     },
