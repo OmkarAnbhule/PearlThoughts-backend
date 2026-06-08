@@ -1,7 +1,14 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
+import { NestFactory } from '@nestjs/core';
 import { createNestApp, startLocalServer } from './bootstrap';
 
-const isVercel = process.env.VERCEL === '1';
+// Satisfies Vercel NestJS entrypoint detection (must import @nestjs/* in main.ts).
+void NestFactory;
+
+const isVercel =
+  process.env.VERCEL === '1' ||
+  process.env.VERCEL === 'true' ||
+  Boolean(process.env.VERCEL_URL);
 
 if (!isVercel) {
   startLocalServer().catch((error: unknown) => {
