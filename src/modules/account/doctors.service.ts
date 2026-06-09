@@ -66,18 +66,9 @@ export class DoctorsService {
       .andWhere('doctor.availability IS NOT NULL');
 
     if (query.specialization) {
-      const specializationFilter = query.specialization.trim();
-      qb.andWhere(
-        new Brackets((subQuery) => {
-          subQuery
-            .where('LOWER(doctor.specialization) LIKE :specialization', {
-              specialization: `%${specializationFilter.toLowerCase()}%`,
-            })
-            .orWhere('LOWER(doctor.specialization) LIKE :specializationStem', {
-              specializationStem: `%${specializationFilter.toLowerCase().replace(/(ologist|ology|ist|ian)$/i, '')}%`,
-            });
-        }),
-      );
+      qb.andWhere('LOWER(doctor.specialization) = LOWER(:specialization)', {
+        specialization: query.specialization.trim(),
+      });
     }
 
     if (query.search) {

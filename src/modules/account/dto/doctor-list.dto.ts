@@ -40,8 +40,8 @@ export class ListDoctorsQueryDto {
   search?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter by specialization (partial match, case-insensitive)',
-    example: 'cardiologist',
+    description: 'Filter by specialization (exact match, case-insensitive)',
+    example: 'Cardiology',
   })
   @IsOptional()
   @IsString()

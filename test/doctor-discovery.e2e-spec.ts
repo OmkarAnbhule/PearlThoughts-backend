@@ -233,7 +233,7 @@ describe('DoctorDiscoveryController (e2e)', () => {
     const response = await request(app.getHttpServer())
       .get('/doctor')
       .set('Authorization', `Bearer ${patientToken}`)
-      .query({ specialization: 'cardiologist' })
+      .query({ specialization: 'Cardiology' })
       .expect(200);
 
     expect(response.body.data).toHaveLength(1);
