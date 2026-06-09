@@ -3,8 +3,13 @@ import { DoctorProfile } from './entities/doctor-profile.entity';
 import { PatientProfile } from './entities/patient-profile.entity';
 import { User } from './entities/user.entity';
 import { DoctorProfileResponseDto } from './dto/doctor-profile.dto';
+import {
+  DoctorDetailResponseDto,
+  DoctorListItemDto,
+} from './dto/doctor-list.dto';
 import { PatientProfileResponseDto } from './dto/patient-profile.dto';
 import { ProfileResponseDto, UserSummaryDto } from './dto/profile-response.dto';
+import { getDoctorAvailabilityStatus } from './utils/doctor-availability.util';
 
 export function computeAge(dateOfBirth: string | null): number | null {
   if (!dateOfBirth) {
@@ -49,6 +54,37 @@ export function toDoctorProfileResponse(
     availability: profile.availability,
     createdAt: profile.createdAt,
     updatedAt: profile.updatedAt,
+  };
+}
+
+export function toDoctorListItem(profile: DoctorProfile): DoctorListItemDto {
+  const user = profile.user;
+
+  return {
+    id: profile.id,
+    fullName: `${user.firstName} ${user.lastName}`,
+    specialization: profile.specialization!,
+    experience: profile.yearsOfExperience!,
+    consultationFee: Number(profile.consultationFee).toFixed(2),
+    availabilityStatus: getDoctorAvailabilityStatus(profile.availability),
+  };
+}
+
+export function toDoctorDetailResponse(
+  profile: DoctorProfile,
+): DoctorDetailResponseDto {
+  const user = profile.user;
+
+  return {
+    id: profile.id,
+    fullName: `${user.firstName} ${user.lastName}`,
+    specialization: profile.specialization!,
+    qualification: profile.qualification!,
+    experience: profile.yearsOfExperience!,
+    bio: profile.bio,
+    consultationFee: Number(profile.consultationFee).toFixed(2),
+    availabilityStatus: getDoctorAvailabilityStatus(profile.availability),
+    availability: profile.availability ?? [],
   };
 }
 
