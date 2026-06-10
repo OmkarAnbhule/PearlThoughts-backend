@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
-import { APP_FILTER } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { GlobalExceptionFilter } from './common/exceptions';
@@ -20,6 +21,12 @@ const databaseEnabled = process.env.SKIP_DATABASE !== 'true';
       envFilePath: '.env',
       load: [authConfig],
     }),
+    ThrottlerModule.forRoot([
+      {
+        ttl: 60_000,
+        limit: 60,
+      },
+    ]),
     databaseConfigModule,
     DatabaseModule.forRoot(),
     ...(databaseEnabled ? [AccountModule] : []),
@@ -30,6 +37,10 @@ const databaseEnabled = process.env.SKIP_DATABASE !== 'true';
     {
       provide: APP_FILTER,
       useClass: GlobalExceptionFilter,
+    },
+    {
+      provide: APP_GUARD,
+      useClass: ThrottlerGuard,
     },
   ],
 })

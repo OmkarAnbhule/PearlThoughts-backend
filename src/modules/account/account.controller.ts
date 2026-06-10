@@ -15,6 +15,7 @@ import {
   ApiTags,
   ApiUnauthorizedResponse,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
 import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { AccountService } from './account.service';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
@@ -32,6 +33,7 @@ export class AccountController {
   constructor(private readonly accountService: AccountService) {}
 
   @Post('signup')
+  @Throttle({ default: { ttl: 60_000, limit: 5 } })
   @ApiOperation({ summary: 'Register a new patient or doctor account' })
   @ApiCreatedResponse({ type: AuthResponseDto })
   signup(@Body() dto: SignupDto): Promise<AuthResponseDto> {
@@ -40,6 +42,7 @@ export class AccountController {
 
   @Post('login')
   @HttpCode(HttpStatus.OK)
+  @Throttle({ default: { ttl: 60_000, limit: 10 } })
   @ApiOperation({ summary: 'Authenticate with email and password' })
   @ApiOkResponse({ type: AuthResponseDto })
   @ApiUnauthorizedResponse({ description: 'Invalid email or password' })
