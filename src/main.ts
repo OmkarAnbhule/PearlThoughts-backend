@@ -1,40 +1,27 @@
-import {
-  ClassSerializerInterceptor,
-  ValidationPipe,
-} from '@nestjs/common';
-import { Reflector } from '@nestjs/core';
+import type { IncomingMessage, ServerResponse } from 'node:http';
 import { NestFactory } from '@nestjs/core';
-import { AppModule } from './app.module';
-import { AppLoggerService, createLogger } from './common/logger';
-import { setupSwagger } from './config/swagger.config';
+import { createNestApp, startLocalServer } from './bootstrap';
 
-async function bootstrap() {
-  const bootstrapLogger = createLogger('Bootstrap');
+// Satisfies Vercel NestJS entrypoint detection (must import @nestjs/* in main.ts).
+void NestFactory;
 
-  const app = await NestFactory.create(AppModule, {
-    bufferLogs: true,
-    logger: bootstrapLogger,
+const isVercel =
+  process.env.VERCEL === '1' ||
+  process.env.VERCEL === 'true' ||
+  Boolean(process.env.VERCEL_URL);
+
+if (!isVercel) {
+  startLocalServer().catch((error: unknown) => {
+    console.error('Failed to start application', error);
+    process.exit(1);
   });
-
-  const logger = app.get(AppLoggerService);
-  app.useLogger(logger);
-
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
-  );
-  app.useGlobalInterceptors(
-    new ClassSerializerInterceptor(app.get(Reflector)),
-  );
-
-  setupSwagger(app);
-
-  const port = Number(process.env.PORT ?? 3000);
-  await app.listen(port);
-  logger.log(`Application listening on port ${port}`);
 }
-bootstrap();
+
+export default async function handler(
+  req: IncomingMessage,
+  res: ServerResponse,
+): Promise<void> {
+  const app = await createNestApp();
+  const expressApp = app.getHttpAdapter().getInstance();
+  expressApp(req, res);
+}

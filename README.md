@@ -63,14 +63,19 @@ npm run test:cov
 
 ## Deployment (Vercel)
 
-This project includes a [`vercel.json`](./vercel.json) configured for NestJS on Vercel.
+Vercel auto-detects NestJS from `src/main.ts` (zero-config). No `vercel.json` is required.
+
+In **Vercel Project Settings → Build & Development**:
+
+- **Install Command:** `npm install --include=dev` (needed so `@nestjs/cli` is available for the build)
+- **Build Command:** leave default or use `npm run build`
+
+Set environment variables from [`.env.example`](./.env.example) in the Vercel project settings.
 
 ```bash
 npm install -g vercel
 vercel
 ```
-
-Set environment variables from [`.env.example`](./.env.example) in the Vercel project settings.
 
 ## License
 
