@@ -7,6 +7,7 @@ import { GlobalExceptionFilter } from './common/exceptions';
 import { LoggerModule } from './common/logger';
 import databaseConfig from './config/database.config';
 import authConfig from './config/auth.config';
+import corsConfig from './config/cors.config';
 import { DatabaseModule, databaseConfigModule } from './database/database.module';
 import { AccountModule } from './modules/account/account.module';
 
@@ -18,7 +19,7 @@ const databaseEnabled = process.env.SKIP_DATABASE !== 'true';
     ConfigModule.forRoot({
       isGlobal: true,
       envFilePath: '.env',
-      load: [authConfig],
+      load: [authConfig, corsConfig],
     }),
     databaseConfigModule,
     DatabaseModule.forRoot(),

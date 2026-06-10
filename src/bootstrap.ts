@@ -7,6 +7,7 @@ import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { AppLoggerService, createLogger } from './common/logger';
+import { setupCors } from './config/cors.config';
 import { setupSwagger } from './config/swagger.config';
 
 let cachedApp: NestExpressApplication | undefined;
@@ -37,6 +38,7 @@ export async function createNestApp(): Promise<NestExpressApplication> {
     new ClassSerializerInterceptor(app.get(Reflector)),
   );
 
+  setupCors(app);
   setupSwagger(app);
   await app.init();
 
