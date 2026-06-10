@@ -6,7 +6,11 @@ const SWAGGER_UI_VERSION = '5.32.6';
 const SWAGGER_CDN = `https://cdn.jsdelivr.net/npm/swagger-ui-dist@${SWAGGER_UI_VERSION}`;
 
 function isVercel(): boolean {
-  return process.env.VERCEL === '1';
+  return (
+    process.env.VERCEL === '1' ||
+    process.env.VERCEL === 'true' ||
+    Boolean(process.env.VERCEL_URL)
+  );
 }
 
 function isSwaggerEnabled(): boolean {

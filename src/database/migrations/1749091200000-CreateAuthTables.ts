@@ -5,23 +5,35 @@ export class CreateAuthTables1749091200000 implements MigrationInterface {
 
   public async up(queryRunner: QueryRunner): Promise<void> {
     await queryRunner.query(`
-      CREATE TYPE "public"."users_user_type_enum" AS ENUM(
-        'patient', 'doctor', 'staff', 'admin'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "public"."users_user_type_enum" AS ENUM(
+          'patient', 'doctor', 'staff', 'admin'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN NULL;
+      END $$;
     `);
     await queryRunner.query(`
-      CREATE TYPE "public"."users_gender_enum" AS ENUM(
-        'male', 'female', 'other', 'prefer_not_to_say'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "public"."users_gender_enum" AS ENUM(
+          'male', 'female', 'other', 'prefer_not_to_say'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN NULL;
+      END $$;
     `);
     await queryRunner.query(`
-      CREATE TYPE "public"."patient_profiles_blood_group_enum" AS ENUM(
-        'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'
-      )
+      DO $$ BEGIN
+        CREATE TYPE "public"."patient_profiles_blood_group_enum" AS ENUM(
+          'A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'
+        );
+      EXCEPTION
+        WHEN duplicate_object THEN NULL;
+      END $$;
     `);
 
     await queryRunner.query(`
-      CREATE TABLE "users" (
+      CREATE TABLE IF NOT EXISTS "users" (
         "id" uuid NOT NULL,
         "email" character varying NOT NULL,
         "password_hash" character varying NOT NULL,
@@ -46,7 +58,7 @@ export class CreateAuthTables1749091200000 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      CREATE TABLE "doctor_profiles" (
+      CREATE TABLE IF NOT EXISTS "doctor_profiles" (
         "id" uuid NOT NULL,
         "user_id" uuid NOT NULL,
         "license_number" character varying NOT NULL,
@@ -65,7 +77,7 @@ export class CreateAuthTables1749091200000 implements MigrationInterface {
     `);
 
     await queryRunner.query(`
-      CREATE TABLE "patient_profiles" (
+      CREATE TABLE IF NOT EXISTS "patient_profiles" (
         "id" uuid NOT NULL,
         "user_id" uuid NOT NULL,
         "blood_group" "public"."patient_profiles_blood_group_enum",
@@ -86,11 +98,15 @@ export class CreateAuthTables1749091200000 implements MigrationInterface {
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
-    await queryRunner.query(`DROP TABLE "patient_profiles"`);
-    await queryRunner.query(`DROP TABLE "doctor_profiles"`);
-    await queryRunner.query(`DROP TABLE "users"`);
-    await queryRunner.query(`DROP TYPE "public"."patient_profiles_blood_group_enum"`);
-    await queryRunner.query(`DROP TYPE "public"."users_gender_enum"`);
-    await queryRunner.query(`DROP TYPE "public"."users_user_type_enum"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "patient_profiles"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "doctor_profiles"`);
+    await queryRunner.query(`DROP TABLE IF EXISTS "users"`);
+    await queryRunner.query(
+      `DROP TYPE IF EXISTS "public"."patient_profiles_blood_group_enum"`,
+    );
+    await queryRunner.query(`DROP TYPE IF EXISTS "public"."users_gender_enum"`);
+    await queryRunner.query(
+      `DROP TYPE IF EXISTS "public"."users_user_type_enum"`,
+    );
   }
 }

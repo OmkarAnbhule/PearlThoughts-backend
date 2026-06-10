@@ -29,10 +29,13 @@ export class DoctorProfile {
   @JoinColumn({ name: 'user_id' })
   user: User;
 
-  @Column({ name: 'license_number', unique: true, nullable: true })
+  @Column({ name: 'profile_image_url', type: 'varchar', nullable: true })
+  profileImageUrl: string | null;
+
+  @Column({ name: 'license_number', type: 'varchar', unique: true, nullable: true })
   licenseNumber: string | null;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   specialization: string | null;
 
   @Column({ nullable: true })
@@ -40,6 +43,15 @@ export class DoctorProfile {
 
   @Column({ name: 'years_of_experience', type: 'int', nullable: true })
   yearsOfExperience: number | null;
+
+  @Column({ type: 'varchar', nullable: true })
+  achievements: string | null;
+
+  @Column({ type: 'text', array: true, nullable: true })
+  services: string[] | null;
+
+  @Column({ type: 'jsonb', nullable: true })
+  availability: DoctorAvailabilityEntry[] | null;
 
   @Column({ type: 'text', nullable: true })
   bio: string | null;
@@ -52,9 +64,6 @@ export class DoctorProfile {
     nullable: true,
   })
   consultationFee: string | null;
-
-  @Column({ type: 'jsonb', nullable: true })
-  availability: DoctorAvailabilityEntry[] | null;
 
   @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
   createdAt: Date;
