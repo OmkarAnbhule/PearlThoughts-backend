@@ -15,7 +15,7 @@ export default registerAs('database', (): TypeOrmModuleOptions => {
     database: db.database,
     ssl: db.ssl ? { rejectUnauthorized: false } : false,
     autoLoadEntities: true,
-    synchronize: process.env.NODE_ENV !== 'production',
+    synchronize: false,
     migrations: [`${__dirname}/../database/migrations/*.{ts,js}`],
     migrationsRun:
       process.env.NODE_ENV === 'production' && !isServerless,

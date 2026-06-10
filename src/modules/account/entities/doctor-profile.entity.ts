@@ -38,6 +38,9 @@ export class DoctorProfile {
   @Column({ type: 'varchar', nullable: true })
   specialization: string | null;
 
+  @Column({ nullable: true })
+  qualification: string | null;
+
   @Column({ name: 'years_of_experience', type: 'int', nullable: true })
   yearsOfExperience: number | null;
 
