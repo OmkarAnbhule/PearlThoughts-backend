@@ -1,13 +1,11 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
-  Put,
   Query,
   UseGuards,
 } from '@nestjs/common';
@@ -20,18 +18,14 @@ import { CurrentUser } from '../../common/decorators/current-user.decorator';
 import { Roles } from '../../common/decorators/roles.decorator';
 import { UserType } from '../../common/enums/user-type.enum';
 import { RolesGuard } from '../../common/guards/roles.guard';
-import type { JwtPayload } from '../account/auth/jwt-payload.interface';
 import { JwtAuthGuard } from '../account/auth/jwt-auth.guard';
+import { User } from '../account/entities/user.entity';
 import {
   BookableSlotDto,
   CancelAppointmentDto,
   CreateAppointmentDto,
-  CreateAvailabilityOverrideDto,
   AppointmentResponseDto,
   DoctorScheduleViewDto,
-  OverrideSummaryDto,
-  RecurringAvailabilityEntryDto,
-  ReplaceRecurringAvailabilityDto,
   ScheduleQueryDto,
   SlotsQueryDto,
 } from './dto/appointment-schedule.dto';
@@ -52,44 +46,35 @@ export class AppointmentsController {
   @Roles(UserType.Patient)
   @ApiOperation({ summary: 'Book an appointment with a doctor' })
   createAppointment(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: User,
     @Body() dto: CreateAppointmentDto,
   ): Promise<AppointmentResponseDto> {
-    return this.appointmentsService.createAppointment(user.sub, dto);
+    return this.appointmentsService.createAppointment(user.id, dto);
   }
 
   @Get('appointments')
   @Roles(UserType.Patient)
   @ApiOperation({ summary: 'List appointments for the authenticated patient' })
   listPatientAppointments(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: User,
   ): Promise<AppointmentResponseDto[]> {
-    return this.appointmentsService.listPatientAppointments(user.sub);
+    return this.appointmentsService.listPatientAppointments(user.id);
   }
 
   @Patch('appointments/:id/cancel')
   @Roles(UserType.Patient, UserType.Doctor)
   @ApiOperation({ summary: 'Cancel an appointment' })
   cancelAppointment(
-    @CurrentUser() user: JwtPayload,
+    @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) appointmentId: string,
     @Body() dto: CancelAppointmentDto,
   ): Promise<AppointmentResponseDto> {
     return this.appointmentsService.cancelAppointment(
-      user.sub,
+      user.id,
       user.userType,
       appointmentId,
       dto,
     );
-  }
-
-  @Get('doctor/appointments')
-  @Roles(UserType.Doctor)
-  @ApiOperation({ summary: 'List appointments for the authenticated doctor' })
-  listDoctorAppointments(
-    @CurrentUser() user: JwtPayload,
-  ): Promise<AppointmentResponseDto[]> {
-    return this.appointmentsService.listDoctorAppointments(user.sub);
   }
 
   @Get('doctor/:id/schedule')
@@ -114,52 +99,5 @@ export class AppointmentsController {
     @Query() query: SlotsQueryDto,
   ): Promise<BookableSlotDto[]> {
     return this.doctorScheduleService.getBookableSlots(doctorId, query.date);
-  }
-
-  @Put('doctor/profile/availability')
-  @Roles(UserType.Doctor)
-  @ApiOperation({ summary: 'Replace recurring weekly availability' })
-  replaceRecurringAvailability(
-    @CurrentUser() user: JwtPayload,
-    @Body() dto: ReplaceRecurringAvailabilityDto,
-  ): Promise<RecurringAvailabilityEntryDto[]> {
-    return this.doctorScheduleService.replaceRecurringAvailability(
-      user.sub,
-      dto,
-    );
-  }
-
-  @Get('doctor/schedule/overrides')
-  @Roles(UserType.Doctor)
-  @ApiOperation({ summary: 'List availability overrides for the authenticated doctor' })
-  listOverrides(
-    @CurrentUser() user: JwtPayload,
-    @Query() query: ScheduleQueryDto,
-  ): Promise<OverrideSummaryDto[]> {
-    return this.doctorScheduleService.listOverrides(
-      user.sub,
-      query.from,
-      query.to,
-    );
-  }
-
-  @Post('doctor/schedule/overrides')
-  @Roles(UserType.Doctor)
-  @ApiOperation({ summary: 'Create an availability override' })
-  createOverride(
-    @CurrentUser() user: JwtPayload,
-    @Body() dto: CreateAvailabilityOverrideDto,
-  ): Promise<OverrideSummaryDto> {
-    return this.doctorScheduleService.createOverride(user.sub, dto);
-  }
-
-  @Delete('doctor/schedule/overrides/:id')
-  @Roles(UserType.Doctor)
-  @ApiOperation({ summary: 'Delete an availability override' })
-  deleteOverride(
-    @CurrentUser() user: JwtPayload,
-    @Param('id', ParseUUIDPipe) overrideId: string,
-  ): Promise<void> {
-    return this.doctorScheduleService.deleteOverride(user.sub, overrideId);
   }
 }

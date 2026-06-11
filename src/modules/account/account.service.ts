@@ -227,15 +227,30 @@ export class AccountService {
     userId: string,
     manager?: EntityManager,
   ): Promise<User | null> {
-    const repo = manager ? manager.getRepository(User) : this.userRepository;
+    const userRepo = manager ? manager.getRepository(User) : this.userRepository;
 
-    return repo.findOne({
-      where: { id: userId },
-      relations: {
-        doctorProfile: true,
-        patientProfile: true,
-      },
-    });
+    const user = await userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      return null;
+    }
+
+    if (user.userType === UserType.Doctor) {
+      const doctorRepo = manager
+        ? manager.getRepository(DoctorProfile)
+        : this.dataSource.getRepository(DoctorProfile);
+      user.doctorProfile =
+        (await doctorRepo.findOne({ where: { userId } })) ?? undefined;
+    }
+
+    if (user.userType === UserType.Patient) {
+      const patientRepo = manager
+        ? manager.getRepository(PatientProfile)
+        : this.dataSource.getRepository(PatientProfile);
+      user.patientProfile =
+        (await patientRepo.findOne({ where: { userId } })) ?? undefined;
+    }
+
+    return user;
   }
 
   private isDoctorProfileComplete(

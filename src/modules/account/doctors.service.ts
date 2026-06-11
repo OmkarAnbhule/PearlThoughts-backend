@@ -17,7 +17,7 @@ import { DoctorScheduleService } from '../appointments/doctor-schedule.service';
 import { DoctorScheduleViewDto } from '../appointments/dto/appointment-schedule.dto';
 import {
   formatDateKey,
-  isCurrentlyAvailable,
+  resolveDoctorLiveAvailabilityStatus,
 } from '../appointments/utils/schedule-resolution.util';
 
 @Injectable()
@@ -49,7 +49,12 @@ export class DoctorsService {
           profile.id,
         );
         const overrides = overridesByDoctor.get(profile.id) ?? [];
-        const availabilityStatus = isCurrentlyAvailable(recurring, overrides)
+        const isAvailable = resolveDoctorLiveAvailabilityStatus(
+          profile.availability,
+          recurring,
+          overrides,
+        );
+        const availabilityStatus = isAvailable
           ? DoctorAvailabilityStatus.Available
           : DoctorAvailabilityStatus.Unavailable;
 
@@ -130,7 +135,12 @@ export class DoctorsService {
       (await this.doctorScheduleService.loadOverridesForToday([doctorId], formatDateKey(new Date()))).get(
         doctorId,
       ) ?? [];
-    const availabilityStatus = isCurrentlyAvailable(recurring, overrides)
+    const isAvailable = resolveDoctorLiveAvailabilityStatus(
+      profile.availability,
+      recurring,
+      overrides,
+    );
+    const availabilityStatus = isAvailable
       ? DoctorAvailabilityStatus.Available
       : DoctorAvailabilityStatus.Unavailable;
 
