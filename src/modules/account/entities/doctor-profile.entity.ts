@@ -5,11 +5,15 @@ import {
   CreateDateColumn,
   Entity,
   JoinColumn,
+  OneToMany,
   OneToOne,
   PrimaryColumn,
   UpdateDateColumn,
 } from 'typeorm';
 import { DoctorAvailabilityEntry } from '../types/doctor-availability.type';
+import { Appointment } from './appointment.entity';
+import { DoctorAvailabilityOverride } from './doctor-availability-override.entity';
+import { DoctorRecurringAvailability } from './doctor-recurring-availability.entity';
 import { User } from './user.entity';
 
 @Entity('doctor_profiles')
@@ -70,4 +74,19 @@ export class DoctorProfile {
 
   @UpdateDateColumn({ name: 'updated_at', type: 'timestamptz' })
   updatedAt: Date;
+
+  @OneToMany(
+    () => DoctorRecurringAvailability,
+    (availability) => availability.doctorProfile,
+  )
+  recurringAvailability?: DoctorRecurringAvailability[];
+
+  @OneToMany(
+    () => DoctorAvailabilityOverride,
+    (override) => override.doctorProfile,
+  )
+  availabilityOverrides?: DoctorAvailabilityOverride[];
+
+  @OneToMany(() => Appointment, (appointment) => appointment.doctorProfile)
+  appointments?: Appointment[];
 }
