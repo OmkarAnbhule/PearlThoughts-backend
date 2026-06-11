@@ -27,12 +27,14 @@ import { SignupDto } from './dto/signup.dto';
 import { DoctorProfile } from './entities/doctor-profile.entity';
 import { PatientProfile } from './entities/patient-profile.entity';
 import { User } from './entities/user.entity';
+import { DoctorScheduleService } from '../appointments/doctor-schedule.service';
 
 @Injectable()
 export class AccountService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly authService: AuthService,
+    private readonly doctorScheduleService: DoctorScheduleService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
   ) {}
@@ -113,6 +115,14 @@ export class AccountService {
 
       await manager.getRepository(User).save(user);
       await manager.getRepository(DoctorProfile).save(user.doctorProfile);
+
+      if (dto.availability) {
+        await this.doctorScheduleService.syncRecurringAvailability(
+          user.doctorProfile.id,
+          dto.availability,
+          manager,
+        );
+      }
     });
 
     return toProfileResponse(await this.requireUserWithProfiles(userId));
@@ -140,6 +150,14 @@ export class AccountService {
 
       await manager.getRepository(User).save(user);
       await manager.getRepository(DoctorProfile).save(user.doctorProfile);
+
+      if (dto.availability) {
+        await this.doctorScheduleService.syncRecurringAvailability(
+          user.doctorProfile.id,
+          dto.availability,
+          manager,
+        );
+      }
     });
 
     return toProfileResponse(await this.requireUserWithProfiles(userId));
@@ -276,9 +294,6 @@ export class AccountService {
     }
     if (dto.consultationFee !== undefined) {
       profile.consultationFee = dto.consultationFee.toFixed(2);
-    }
-    if (dto.availability !== undefined) {
-      profile.availability = dto.availability;
     }
   }
 

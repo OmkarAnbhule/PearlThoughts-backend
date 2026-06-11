@@ -16,9 +16,13 @@ import { BloodGroup } from '../src/common/enums/blood-group.enum';
 import { Gender } from '../src/common/enums/gender.enum';
 import { UserType } from '../src/common/enums/user-type.enum';
 import { AccountModule } from '../src/modules/account/account.module';
+import { Appointment } from '../src/modules/account/entities/appointment.entity';
+import { DoctorAvailabilityOverride } from '../src/modules/account/entities/doctor-availability-override.entity';
 import { DoctorProfile } from '../src/modules/account/entities/doctor-profile.entity';
+import { DoctorRecurringAvailability } from '../src/modules/account/entities/doctor-recurring-availability.entity';
 import { PatientProfile } from '../src/modules/account/entities/patient-profile.entity';
 import { User } from '../src/modules/account/entities/user.entity';
+import { WEEKDAY_NAMES } from '../src/modules/appointments/utils/schedule-resolution.util';
 
 describe('AccountController (e2e)', () => {
   let app: INestApplication<App>;
@@ -55,7 +59,14 @@ describe('AccountController (e2e)', () => {
 
     dataSource = db.adapters.createTypeormDataSource({
       type: 'postgres',
-      entities: [User, DoctorProfile, PatientProfile],
+      entities: [
+        User,
+        DoctorProfile,
+        PatientProfile,
+        DoctorRecurringAvailability,
+        DoctorAvailabilityOverride,
+        Appointment,
+      ],
       synchronize: true,
     });
     await dataSource.initialize();
@@ -170,11 +181,9 @@ describe('AccountController (e2e)', () => {
         yearsOfExperience: 12,
         consultationFee: 500,
         availability: [
-          {
-            days: ['monday', 'wednesday', 'friday'],
-            startTime: '09:00',
-            endTime: '17:00',
-          },
+          { day: 'monday', startTime: '09:00', endTime: '17:00' },
+          { day: 'wednesday', startTime: '09:00', endTime: '17:00' },
+          { day: 'friday', startTime: '09:00', endTime: '17:00' },
         ],
         bio: 'Board-certified cardiologist.',
       })
@@ -192,6 +201,9 @@ describe('AccountController (e2e)', () => {
     });
     expect(Number(response.body.doctorProfile.consultationFee)).toBe(500);
     expect(response.body.doctorProfile.availability).toHaveLength(1);
+    expect(response.body.doctorProfile.availability[0].days).toEqual(
+      expect.arrayContaining(['monday', 'wednesday', 'friday']),
+    );
   });
 
   it('POST /doctor/profile rejects duplicate profile creation', async () => {
@@ -206,7 +218,7 @@ describe('AccountController (e2e)', () => {
         yearsOfExperience: 5,
         consultationFee: 400,
         availability: [
-          { days: ['tuesday'], startTime: '10:00', endTime: '16:00' },
+          { day: 'tuesday', startTime: '10:00', endTime: '16:00' },
         ],
       })
       .expect(409);

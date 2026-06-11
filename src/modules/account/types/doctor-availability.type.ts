@@ -1,8 +1,7 @@
+import { WeekdayName } from '../../appointments/utils/schedule-resolution.util';
+
 export interface DoctorAvailabilityEntry {
-  /** e.g. ["Monday", "Tuesday"] or weekday names */
-  days: string[];
-  /** e.g. "10:00 AM" */
+  day: WeekdayName;
   startTime: string;
-  /** e.g. "1:00 PM" */
   endTime: string;
 }
