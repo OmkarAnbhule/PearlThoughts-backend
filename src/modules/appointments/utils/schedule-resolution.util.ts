@@ -287,9 +287,51 @@ export function isCurrentlyAvailable(
       start !== null &&
       end !== null &&
       currentMinutes >= start &&
-      currentMinutes < end
+      currentMinutes <= end
     );
   });
+}
+
+export function resolveDoctorLiveAvailabilityStatus(
+  legacyAvailability: Array<{ day?: string; days?: string[]; startTime: string; endTime: string }> | null,
+  recurring: DoctorRecurringSlot[],
+  overrides: DoctorOverrideSlot[],
+  now: Date = new Date(),
+): boolean {
+  if (recurring.length > 0) {
+    return isCurrentlyAvailable(recurring, overrides, now);
+  }
+
+  if (!legacyAvailability?.length) {
+    return false;
+  }
+
+  const currentDay = WEEKDAY_NAMES[now.getDay()];
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+
+  for (const entry of legacyAvailability) {
+    const matchesDay =
+      (entry.day && entry.day.toLowerCase() === currentDay) ||
+      entry.days?.some((day) => day.toLowerCase() === currentDay);
+
+    if (!matchesDay) {
+      continue;
+    }
+
+    const start = parseTimeToMinutes(entry.startTime);
+    const end = parseTimeToMinutes(entry.endTime);
+
+    if (
+      start !== null &&
+      end !== null &&
+      currentMinutes >= start &&
+      currentMinutes <= end
+    ) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function recurringSlotsToLegacyAvailability(
