@@ -12,6 +12,7 @@ import {
   MinLength,
 } from 'class-validator';
 import { DoctorAvailabilityStatus } from '../../../common/enums/doctor-availability-status.enum';
+import { DoctorScheduleViewDto } from '../../appointments/dto/appointment-schedule.dto';
 import { DoctorAvailabilityEntryDto } from './doctor-profile.dto';
 
 export class ListDoctorsQueryDto {
@@ -130,4 +131,7 @@ export class DoctorDetailResponseDto {
 
   @ApiProperty({ type: [DoctorAvailabilityEntryDto] })
   availability: DoctorAvailabilityEntryDto[];
+
+  @ApiPropertyOptional()
+  schedule?: DoctorScheduleViewDto;
 }
