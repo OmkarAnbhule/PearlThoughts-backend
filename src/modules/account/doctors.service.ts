@@ -13,13 +13,19 @@ import {
   ListDoctorsQueryDto,
 } from './dto/doctor-list.dto';
 import { DoctorProfile } from './entities/doctor-profile.entity';
-import { getDoctorAvailabilityStatus } from './utils/doctor-availability.util';
+import { DoctorScheduleService } from '../appointments/doctor-schedule.service';
+import { DoctorScheduleViewDto } from '../appointments/dto/appointment-schedule.dto';
+import {
+  formatDateKey,
+  resolveDoctorLiveAvailabilityStatus,
+} from '../appointments/utils/schedule-resolution.util';
 
 @Injectable()
 export class DoctorsService {
   constructor(
     @InjectRepository(DoctorProfile)
     private readonly doctorProfileRepository: Repository<DoctorProfile>,
+    private readonly doctorScheduleService: DoctorScheduleService,
   ) {}
 
   async listDoctors(query: ListDoctorsQueryDto): Promise<DoctorListResponseDto> {
@@ -30,7 +36,31 @@ export class DoctorsService {
       .orderBy('doctor.id', 'ASC')
       .getMany();
 
-    let items = profiles.map(toDoctorListItem);
+    const today = formatDateKey(new Date());
+    const overridesByDoctor =
+      await this.doctorScheduleService.loadOverridesForToday(
+        profiles.map((profile) => profile.id),
+        today,
+      );
+
+    let items = await Promise.all(
+      profiles.map(async (profile) => {
+        const recurring = await this.doctorScheduleService.loadRecurringSlots(
+          profile.id,
+        );
+        const overrides = overridesByDoctor.get(profile.id) ?? [];
+        const isAvailable = resolveDoctorLiveAvailabilityStatus(
+          profile.availability,
+          recurring,
+          overrides,
+        );
+        const availabilityStatus = isAvailable
+          ? DoctorAvailabilityStatus.Available
+          : DoctorAvailabilityStatus.Unavailable;
+
+        return toDoctorListItem(profile, availabilityStatus);
+      }),
+    );
 
     if (query.availability === 'true') {
       items = items.filter(
@@ -96,7 +126,43 @@ export class DoctorsService {
       throw new NotFoundException('Doctor not found');
     }
 
-    return toDoctorDetailResponse(profile);
+    const schedule =
+      await this.doctorScheduleService.getResolvedScheduleForDoctor(doctorId);
+    const recurring = await this.doctorScheduleService.loadRecurringSlots(
+      doctorId,
+    );
+    const overrides =
+      (await this.doctorScheduleService.loadOverridesForToday([doctorId], formatDateKey(new Date()))).get(
+        doctorId,
+      ) ?? [];
+    const isAvailable = resolveDoctorLiveAvailabilityStatus(
+      profile.availability,
+      recurring,
+      overrides,
+    );
+    const availabilityStatus = isAvailable
+      ? DoctorAvailabilityStatus.Available
+      : DoctorAvailabilityStatus.Unavailable;
+
+    return toDoctorDetailResponse(profile, availabilityStatus, schedule);
+  }
+
+  async getDoctorSchedule(
+    doctorId: string,
+    from?: string,
+    to?: string,
+  ): Promise<DoctorScheduleViewDto> {
+    const profile = await this.findOnboardedDoctorProfile(doctorId);
+
+    if (!profile) {
+      throw new NotFoundException('Doctor not found');
+    }
+
+    return this.doctorScheduleService.getResolvedScheduleForDoctor(
+      doctorId,
+      from,
+      to,
+    );
   }
 
   private async findOnboardedDoctorProfile(

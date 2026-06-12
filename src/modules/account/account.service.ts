@@ -27,12 +27,14 @@ import { SignupDto } from './dto/signup.dto';
 import { DoctorProfile } from './entities/doctor-profile.entity';
 import { PatientProfile } from './entities/patient-profile.entity';
 import { User } from './entities/user.entity';
+import { DoctorScheduleService } from '../appointments/doctor-schedule.service';
 
 @Injectable()
 export class AccountService {
   constructor(
     private readonly dataSource: DataSource,
     private readonly authService: AuthService,
+    private readonly doctorScheduleService: DoctorScheduleService,
     @InjectRepository(User)
     private readonly userRepository: Repository<User>,
   ) {}
@@ -113,6 +115,14 @@ export class AccountService {
 
       await manager.getRepository(User).save(user);
       await manager.getRepository(DoctorProfile).save(user.doctorProfile);
+
+      if (dto.availability) {
+        await this.doctorScheduleService.syncRecurringAvailability(
+          user.doctorProfile.id,
+          dto.availability,
+          manager,
+        );
+      }
     });
 
     return toProfileResponse(await this.requireUserWithProfiles(userId));
@@ -140,6 +150,14 @@ export class AccountService {
 
       await manager.getRepository(User).save(user);
       await manager.getRepository(DoctorProfile).save(user.doctorProfile);
+
+      if (dto.availability) {
+        await this.doctorScheduleService.syncRecurringAvailability(
+          user.doctorProfile.id,
+          dto.availability,
+          manager,
+        );
+      }
     });
 
     return toProfileResponse(await this.requireUserWithProfiles(userId));
@@ -209,15 +227,30 @@ export class AccountService {
     userId: string,
     manager?: EntityManager,
   ): Promise<User | null> {
-    const repo = manager ? manager.getRepository(User) : this.userRepository;
+    const userRepo = manager ? manager.getRepository(User) : this.userRepository;
 
-    return repo.findOne({
-      where: { id: userId },
-      relations: {
-        doctorProfile: true,
-        patientProfile: true,
-      },
-    });
+    const user = await userRepo.findOne({ where: { id: userId } });
+    if (!user) {
+      return null;
+    }
+
+    if (user.userType === UserType.Doctor) {
+      const doctorRepo = manager
+        ? manager.getRepository(DoctorProfile)
+        : this.dataSource.getRepository(DoctorProfile);
+      user.doctorProfile =
+        (await doctorRepo.findOne({ where: { userId } })) ?? undefined;
+    }
+
+    if (user.userType === UserType.Patient) {
+      const patientRepo = manager
+        ? manager.getRepository(PatientProfile)
+        : this.dataSource.getRepository(PatientProfile);
+      user.patientProfile =
+        (await patientRepo.findOne({ where: { userId } })) ?? undefined;
+    }
+
+    return user;
   }
 
   private isDoctorProfileComplete(
@@ -276,9 +309,6 @@ export class AccountService {
     }
     if (dto.consultationFee !== undefined) {
       profile.consultationFee = dto.consultationFee.toFixed(2);
-    }
-    if (dto.availability !== undefined) {
-      profile.availability = dto.availability;
     }
   }
 

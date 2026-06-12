@@ -1,4 +1,6 @@
+import { DoctorAvailabilityStatus } from '../../common/enums/doctor-availability-status.enum';
 import { UserType } from '../../common/enums/user-type.enum';
+import { DoctorScheduleViewDto } from '../appointments/dto/appointment-schedule.dto';
 import { DoctorProfile } from './entities/doctor-profile.entity';
 import { PatientProfile } from './entities/patient-profile.entity';
 import { User } from './entities/user.entity';
@@ -9,7 +11,6 @@ import {
 } from './dto/doctor-list.dto';
 import { PatientProfileResponseDto } from './dto/patient-profile.dto';
 import { ProfileResponseDto, UserSummaryDto } from './dto/profile-response.dto';
-import { getDoctorAvailabilityStatus } from './utils/doctor-availability.util';
 
 export function computeAge(dateOfBirth: string | null): number | null {
   if (!dateOfBirth) {
@@ -30,7 +31,6 @@ export function computeAge(dateOfBirth: string | null): number | null {
 
   return age >= 0 ? age : null;
 }
-
 export function toUserSummary(user: User): UserSummaryDto {
   return {
     id: user.id,
@@ -57,7 +57,10 @@ export function toDoctorProfileResponse(
   };
 }
 
-export function toDoctorListItem(profile: DoctorProfile): DoctorListItemDto {
+export function toDoctorListItem(
+  profile: DoctorProfile,
+  availabilityStatus: DoctorAvailabilityStatus = DoctorAvailabilityStatus.Unavailable,
+): DoctorListItemDto {
   const user = profile.user;
 
   return {
@@ -66,12 +69,14 @@ export function toDoctorListItem(profile: DoctorProfile): DoctorListItemDto {
     specialization: profile.specialization!,
     experience: profile.yearsOfExperience!,
     consultationFee: Number(profile.consultationFee).toFixed(2),
-    availabilityStatus: getDoctorAvailabilityStatus(profile.availability),
+    availabilityStatus,
   };
 }
 
 export function toDoctorDetailResponse(
   profile: DoctorProfile,
+  availabilityStatus: DoctorAvailabilityStatus = DoctorAvailabilityStatus.Unavailable,
+  schedule?: DoctorScheduleViewDto,
 ): DoctorDetailResponseDto {
   const user = profile.user;
 
@@ -83,11 +88,11 @@ export function toDoctorDetailResponse(
     experience: profile.yearsOfExperience!,
     bio: profile.bio,
     consultationFee: Number(profile.consultationFee).toFixed(2),
-    availabilityStatus: getDoctorAvailabilityStatus(profile.availability),
+    availabilityStatus,
     availability: profile.availability ?? [],
+    schedule,
   };
 }
-
 export function toPatientProfileResponse(
   profile: PatientProfile,
 ): PatientProfileResponseDto {

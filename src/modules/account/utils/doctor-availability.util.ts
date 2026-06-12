@@ -12,12 +12,25 @@ const DAY_NAMES = [
 ] as const;
 
 function parseTimeToMinutes(time: string): number | null {
-  const match = /^(\d{1,2}):(\d{2})$/.exec(time.trim());
+  const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(time.trim());
   if (!match) {
     return null;
   }
 
   return Number.parseInt(match[1], 10) * 60 + Number.parseInt(match[2], 10);
+}
+
+function entryMatchesDay(
+  entry: DoctorAvailabilityEntry & { days?: string[] },
+  currentDay: string,
+): boolean {
+  if ('day' in entry && entry.day) {
+    return entry.day.toLowerCase() === currentDay;
+  }
+
+  return (
+    entry.days?.some((day) => day.toLowerCase() === currentDay) ?? false
+  );
 }
 
 export function getDoctorAvailabilityStatus(
@@ -32,11 +45,7 @@ export function getDoctorAvailabilityStatus(
   const currentMinutes = now.getHours() * 60 + now.getMinutes();
 
   for (const entry of availability) {
-    const matchesDay = entry.days.some(
-      (day) => day.toLowerCase() === currentDay,
-    );
-
-    if (!matchesDay) {
+    if (!entryMatchesDay(entry, currentDay)) {
       continue;
     }
 

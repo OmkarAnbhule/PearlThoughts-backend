@@ -3,6 +3,7 @@ import { Type } from 'class-transformer';
 import {
   ArrayMinSize,
   IsArray,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -13,13 +14,12 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { DoctorAvailabilityEntry } from '../types/doctor-availability.type';
+import { WEEKDAY_NAMES } from '../../appointments/utils/schedule-resolution.util';
 
 export class DoctorAvailabilityEntryDto implements DoctorAvailabilityEntry {
-  @ApiProperty({ example: ['monday', 'wednesday', 'friday'] })
-  @IsArray()
-  @ArrayMinSize(1)
-  @IsString({ each: true })
-  days: string[];
+  @ApiProperty({ example: 'monday', enum: WEEKDAY_NAMES })
+  @IsIn([...WEEKDAY_NAMES])
+  day: DoctorAvailabilityEntry['day'];
 
   @ApiProperty({ example: '09:00' })
   @IsString()

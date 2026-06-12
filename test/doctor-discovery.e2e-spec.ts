@@ -15,25 +15,19 @@ import authConfig from '../src/config/auth.config';
 import { DoctorAvailabilityStatus } from '../src/common/enums/doctor-availability-status.enum';
 import { UserType } from '../src/common/enums/user-type.enum';
 import { AccountModule } from '../src/modules/account/account.module';
+import { Appointment } from '../src/modules/account/entities/appointment.entity';
+import { DoctorAvailabilityOverride } from '../src/modules/account/entities/doctor-availability-override.entity';
 import { DoctorProfile } from '../src/modules/account/entities/doctor-profile.entity';
+import { DoctorRecurringAvailability } from '../src/modules/account/entities/doctor-recurring-availability.entity';
 import { PatientProfile } from '../src/modules/account/entities/patient-profile.entity';
 import { User } from '../src/modules/account/entities/user.entity';
+import { WEEKDAY_NAMES } from '../src/modules/appointments/utils/schedule-resolution.util';
 
-const ALL_DAY_AVAILABILITY = [
-  {
-    days: [
-      'sunday',
-      'monday',
-      'tuesday',
-      'wednesday',
-      'thursday',
-      'friday',
-      'saturday',
-    ],
-    startTime: '00:00',
-    endTime: '23:59',
-  },
-];
+const ALL_DAY_AVAILABILITY = WEEKDAY_NAMES.map((day) => ({
+  day,
+  startTime: '00:00',
+  endTime: '23:59',
+}));
 
 describe('DoctorDiscoveryController (e2e)', () => {
   let app: INestApplication<App>;
@@ -72,7 +66,14 @@ describe('DoctorDiscoveryController (e2e)', () => {
 
     dataSource = db.adapters.createTypeormDataSource({
       type: 'postgres',
-      entities: [User, DoctorProfile, PatientProfile],
+      entities: [
+        User,
+        DoctorProfile,
+        PatientProfile,
+        DoctorRecurringAvailability,
+        DoctorAvailabilityOverride,
+        Appointment,
+      ],
       synchronize: true,
     });
     await dataSource.initialize();
@@ -339,6 +340,8 @@ describe('DoctorDiscoveryController (e2e)', () => {
     });
     expect(Number(response.body.consultationFee)).toBe(750);
     expect(response.body.availability).toHaveLength(1);
+    expect(response.body.schedule.thisWeek).toHaveLength(7);
+    expect(response.body.schedule.recurringSchedule).toHaveLength(7);
   });
 
   it('GET /doctor/:id returns 404 for unknown doctor', async () => {
