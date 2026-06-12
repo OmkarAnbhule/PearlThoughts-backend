@@ -21,11 +21,11 @@ import { RolesGuard } from '../../common/guards/roles.guard';
 import { JwtAuthGuard } from '../account/auth/jwt-auth.guard';
 import { User } from '../account/entities/user.entity';
 import {
-  BookableSlotDto,
   CancelAppointmentDto,
   CreateAppointmentDto,
   AppointmentResponseDto,
   DoctorScheduleViewDto,
+  DoctorSlotsResponseDto,
   ScheduleQueryDto,
   SlotsQueryDto,
 } from './dto/appointment-schedule.dto';
@@ -97,7 +97,11 @@ export class AppointmentsController {
   getDoctorSlots(
     @Param('id', ParseUUIDPipe) doctorId: string,
     @Query() query: SlotsQueryDto,
-  ): Promise<BookableSlotDto[]> {
-    return this.doctorScheduleService.getBookableSlots(doctorId, query.date);
+  ): Promise<DoctorSlotsResponseDto> {
+    return this.doctorScheduleService.getBookableSlots(
+      doctorId,
+      query.date,
+      query.duration,
+    );
   }
 }

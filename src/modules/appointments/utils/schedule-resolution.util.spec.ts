@@ -86,6 +86,19 @@ describe('schedule-resolution.util', () => {
   });
 
   describe('generateBookableSlots', () => {
+    it('supports 10, 15, and 30 minute slot durations', () => {
+      const resolved = resolveDayAvailability(
+        [{ dayOfWeek: 1, startTime: '10:00', endTime: '11:00' }],
+        [],
+        new Date('2026-06-15T00:00:00'),
+        new Date('2026-06-14T00:00:00'),
+      );
+
+      expect(generateBookableSlots(resolved, 10)).toHaveLength(6);
+      expect(generateBookableSlots(resolved, 15)).toHaveLength(4);
+      expect(generateBookableSlots(resolved, 30)).toHaveLength(2);
+    });
+
     it('generates fixed-duration slots across multiple windows', () => {
       const resolved = resolveDayAvailability(
         [{ dayOfWeek: 1, startTime: '10:00', endTime: '11:00' }],

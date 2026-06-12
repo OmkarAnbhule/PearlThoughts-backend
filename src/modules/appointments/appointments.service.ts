@@ -59,6 +59,9 @@ export class AppointmentsService {
       throw new BadRequestException('Cannot book appointments in the past');
     }
 
+    const slotDuration =
+      dto.duration ?? DEFAULT_SLOT_DURATION_MINUTES;
+
     const recurring = await this.doctorScheduleService.loadRecurringSlots(
       doctor.id,
     );
@@ -71,7 +74,7 @@ export class AppointmentsService {
       overrides,
       new Date(`${dto.date}T00:00:00`),
     );
-    const availableSlots = generateBookableSlots(resolved);
+    const availableSlots = generateBookableSlots(resolved, slotDuration);
     const isSlotAvailable = availableSlots.some(
       (slot) => slot.startTime === dto.startTime,
     );
@@ -81,9 +84,7 @@ export class AppointmentsService {
     }
 
     const scheduledEnd = new Date(scheduledStart);
-    scheduledEnd.setMinutes(
-      scheduledEnd.getMinutes() + DEFAULT_SLOT_DURATION_MINUTES,
-    );
+    scheduledEnd.setMinutes(scheduledEnd.getMinutes() + slotDuration);
 
     try {
       const saved = await this.dataSource.transaction(async (manager) => {
