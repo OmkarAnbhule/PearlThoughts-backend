@@ -26,11 +26,15 @@ import { UserType } from '../../common/enums/user-type.enum';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import {
   AppointmentResponseDto,
+  AvailabilityDateQueryDto,
   CreateAvailabilityOverrideDto,
   OverrideSummaryDto,
   RecurringAvailabilityEntryDto,
+  RecurringAvailabilityResponseDto,
   ReplaceRecurringAvailabilityDto,
+  ResolvedDayAvailabilityDto,
   ScheduleQueryDto,
+  UpdateRecurringAvailabilityDto,
 } from '../appointments/dto/appointment-schedule.dto';
 import { AppointmentsService } from '../appointments/appointments.service';
 import { DoctorScheduleService } from '../appointments/doctor-schedule.service';
@@ -86,14 +90,83 @@ export class DoctorController {
     return this.accountService.updateDoctorProfile(user.id, dto);
   }
 
+  @Post('availability')
+  @ApiOperation({ summary: 'Create a recurring availability window' })
+  @ApiCreatedResponse({ type: RecurringAvailabilityResponseDto })
+  createAvailability(
+    @CurrentUser() user: User,
+    @Body() dto: RecurringAvailabilityEntryDto,
+  ): Promise<RecurringAvailabilityResponseDto> {
+    return this.doctorScheduleService.createRecurringAvailability(user.id, dto);
+  }
+
+  @Get('availability')
+  @ApiOperation({ summary: 'List recurring weekly availability' })
+  @ApiOkResponse({ type: [RecurringAvailabilityResponseDto] })
+  listAvailability(
+    @CurrentUser() user: User,
+  ): Promise<RecurringAvailabilityResponseDto[]> {
+    return this.doctorScheduleService.listRecurringAvailability(user.id);
+  }
+
+  @Patch('availability/:id')
+  @ApiOperation({ summary: 'Update a recurring availability window' })
+  @ApiOkResponse({ type: RecurringAvailabilityResponseDto })
+  updateAvailability(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) availabilityId: string,
+    @Body() dto: UpdateRecurringAvailabilityDto,
+  ): Promise<RecurringAvailabilityResponseDto> {
+    return this.doctorScheduleService.updateRecurringAvailability(
+      user.id,
+      availabilityId,
+      dto,
+    );
+  }
+
+  @Delete('availability/:id')
+  @ApiOperation({ summary: 'Delete a recurring availability window' })
+  deleteAvailability(
+    @CurrentUser() user: User,
+    @Param('id', ParseUUIDPipe) availabilityId: string,
+  ): Promise<void> {
+    return this.doctorScheduleService.deleteRecurringAvailability(
+      user.id,
+      availabilityId,
+    );
+  }
+
   @Put('profile/availability')
-  @ApiOperation({ summary: 'Replace recurring weekly availability' })
-  @ApiOkResponse({ type: [RecurringAvailabilityEntryDto] })
+  @ApiOperation({ summary: 'Replace all recurring weekly availability' })
+  @ApiOkResponse({ type: [RecurringAvailabilityResponseDto] })
   replaceRecurringAvailability(
     @CurrentUser() user: User,
     @Body() dto: ReplaceRecurringAvailabilityDto,
-  ): Promise<RecurringAvailabilityEntryDto[]> {
+  ): Promise<RecurringAvailabilityResponseDto[]> {
     return this.doctorScheduleService.replaceRecurringAvailability(user.id, dto);
+  }
+
+  @Post('availability/override')
+  @ApiOperation({ summary: 'Create a custom date availability override' })
+  @ApiCreatedResponse({ type: OverrideSummaryDto })
+  createAvailabilityOverride(
+    @CurrentUser() user: User,
+    @Body() dto: CreateAvailabilityOverrideDto,
+  ): Promise<OverrideSummaryDto> {
+    return this.doctorScheduleService.createOverride(user.id, dto);
+  }
+
+  @Get('availability/date')
+  @ApiOperation({ summary: 'Get resolved availability for a specific date' })
+  @ApiOkResponse({ type: ResolvedDayAvailabilityDto })
+  getAvailabilityForDate(
+    @CurrentUser() user: User,
+    @Query() query: AvailabilityDateQueryDto,
+  ): Promise<ResolvedDayAvailabilityDto> {
+    return this.doctorScheduleService.getAvailabilityForDate(
+      user.id,
+      query.date,
+    );
   }
 
   @Get('appointments')
@@ -106,7 +179,7 @@ export class DoctorController {
   }
 
   @Get('schedule/overrides')
-  @ApiOperation({ summary: 'List availability overrides for the authenticated doctor' })
+  @ApiOperation({ summary: 'List availability overrides for a date range' })
   @ApiOkResponse({ type: [OverrideSummaryDto] })
   listOverrides(
     @CurrentUser() user: User,
@@ -117,16 +190,6 @@ export class DoctorController {
       query.from,
       query.to,
     );
-  }
-
-  @Post('schedule/overrides')
-  @ApiOperation({ summary: 'Create an availability override' })
-  @ApiOkResponse({ type: OverrideSummaryDto })
-  createOverride(
-    @CurrentUser() user: User,
-    @Body() dto: CreateAvailabilityOverrideDto,
-  ): Promise<OverrideSummaryDto> {
-    return this.doctorScheduleService.createOverride(user.id, dto);
   }
 
   @Delete('schedule/overrides/:id')

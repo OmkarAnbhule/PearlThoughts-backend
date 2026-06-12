@@ -35,6 +35,32 @@ export class RecurringAvailabilityEntryDto {
   endTime: string;
 }
 
+export class RecurringAvailabilityResponseDto extends RecurringAvailabilityEntryDto {
+  @ApiProperty({ format: 'uuid' })
+  id: string;
+}
+
+export class UpdateRecurringAvailabilityDto {
+  @ApiPropertyOptional({ example: 'monday', enum: WEEKDAY_NAMES })
+  @IsOptional()
+  @IsIn([...WEEKDAY_NAMES])
+  day?: (typeof WEEKDAY_NAMES)[number];
+
+  @ApiPropertyOptional({ example: '09:00' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(10)
+  startTime?: string;
+
+  @ApiPropertyOptional({ example: '17:00' })
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(10)
+  endTime?: string;
+}
+
 export class ReplaceRecurringAvailabilityDto {
   @ApiProperty({ type: [RecurringAvailabilityEntryDto] })
   @IsArray()
@@ -145,8 +171,8 @@ export class DoctorScheduleViewDto {
   @ApiProperty({ type: [ResolvedDayAvailabilityDto] })
   thisWeek: ResolvedDayAvailabilityDto[];
 
-  @ApiProperty({ type: [RecurringAvailabilityEntryDto] })
-  recurringSchedule: RecurringAvailabilityEntryDto[];
+  @ApiProperty({ type: [RecurringAvailabilityResponseDto] })
+  recurringSchedule: RecurringAvailabilityResponseDto[];
 
   @ApiProperty({ type: [OverrideSummaryDto] })
   upcomingOverrides: OverrideSummaryDto[];
@@ -162,6 +188,12 @@ export class ScheduleQueryDto {
   @IsOptional()
   @IsDateString()
   to?: string;
+}
+
+export class AvailabilityDateQueryDto {
+  @ApiProperty({ example: '2026-06-15' })
+  @IsDateString()
+  date: string;
 }
 
 export class SlotsQueryDto {

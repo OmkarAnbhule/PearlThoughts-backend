@@ -139,6 +139,13 @@ function subtractBlockedRanges(
   }));
 }
 
+export function timeRangesOverlap(
+  a: { start: number; end: number },
+  b: { start: number; end: number },
+): boolean {
+  return a.start < b.end && b.start < a.end;
+}
+
 export function resolveDayAvailability(
   recurring: DoctorRecurringSlot[],
   overrides: DoctorOverrideSlot[],
@@ -163,35 +170,49 @@ export function resolveDayAvailability(
     };
   }
 
+  const blockedRanges = overrides
+    .filter((override) => override.overrideType === 'blocked')
+    .map((override) => ({
+      start: parseTimeToMinutes(override.blockedStartTime ?? '') ?? -1,
+      end: parseTimeToMinutes(override.blockedEndTime ?? '') ?? -1,
+    }))
+    .filter((range) => range.start >= 0 && range.end > range.start);
+
   const modifiedOverride = overrides.find(
     (override) => override.overrideType === 'modified',
   );
 
-  let baseStart: number | null = null;
-  let baseEnd: number | null = null;
+  let baseRanges: Array<{ start: number; end: number }> = [];
   let status: ResolvedDayStatus = 'unavailable';
 
   if (modifiedOverride?.startTime && modifiedOverride.endTime) {
-    baseStart = parseTimeToMinutes(modifiedOverride.startTime);
-    baseEnd = parseTimeToMinutes(modifiedOverride.endTime);
-    status = 'modified';
+    const start = parseTimeToMinutes(modifiedOverride.startTime);
+    const end = parseTimeToMinutes(modifiedOverride.endTime);
+
+    if (start !== null && end !== null && start < end) {
+      baseRanges = [{ start, end }];
+      status = 'modified';
+    }
   } else {
-    const recurringSlot = recurring.find(
+    const dayRecurring = recurring.filter(
       (slot) => slot.dayOfWeek === date.getDay(),
     );
 
-    if (recurringSlot) {
-      baseStart = parseTimeToMinutes(recurringSlot.startTime);
-      baseEnd = parseTimeToMinutes(recurringSlot.endTime);
+    for (const recurringSlot of dayRecurring) {
+      const start = parseTimeToMinutes(recurringSlot.startTime);
+      const end = parseTimeToMinutes(recurringSlot.endTime);
+
+      if (start !== null && end !== null && start < end) {
+        baseRanges.push({ start, end });
+      }
+    }
+
+    if (baseRanges.length > 0) {
       status = 'available';
     }
   }
 
-  if (
-    baseStart === null ||
-    baseEnd === null ||
-    baseStart >= baseEnd
-  ) {
+  if (baseRanges.length === 0) {
     return {
       date: dateKey,
       day,
@@ -202,15 +223,16 @@ export function resolveDayAvailability(
     };
   }
 
-  const blockedRanges = overrides
-    .filter((override) => override.overrideType === 'blocked')
-    .map((override) => ({
-      start: parseTimeToMinutes(override.blockedStartTime ?? '') ?? -1,
-      end: parseTimeToMinutes(override.blockedEndTime ?? '') ?? -1,
-    }))
-    .filter((range) => range.start >= 0 && range.end > range.start);
+  let slots: TimeRange[] = [];
+  for (const range of baseRanges) {
+    slots.push(...subtractBlockedRanges(range.start, range.end, blockedRanges));
+  }
 
-  const slots = subtractBlockedRanges(baseStart, baseEnd, blockedRanges);
+  slots.sort(
+    (left, right) =>
+      (parseTimeToMinutes(left.startTime) ?? 0) -
+      (parseTimeToMinutes(right.startTime) ?? 0),
+  );
 
   if (blockedRanges.length > 0 && slots.length > 0 && status === 'available') {
     status = 'partially_blocked';
