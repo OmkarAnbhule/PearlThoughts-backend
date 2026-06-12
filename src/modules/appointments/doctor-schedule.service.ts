@@ -16,8 +16,10 @@ import {
   DoctorScheduleViewDto,
   OverrideSummaryDto,
   RecurringAvailabilityEntryDto,
+  RecurringAvailabilityResponseDto,
   ReplaceRecurringAvailabilityDto,
   ResolvedDayAvailabilityDto,
+  UpdateRecurringAvailabilityDto,
 } from './dto/appointment-schedule.dto';
 import {
   dayNameFromIndex,
@@ -28,6 +30,7 @@ import {
   parseTimeToMinutes,
   recurringSlotsToLegacyAvailability,
   resolveDayAvailability,
+  timeRangesOverlap,
   TimeRange,
 } from './utils/schedule-resolution.util';
 
@@ -47,7 +50,7 @@ export class DoctorScheduleService {
   async replaceRecurringAvailability(
     userId: string,
     dto: ReplaceRecurringAvailabilityDto,
-  ): Promise<RecurringAvailabilityEntryDto[]> {
+  ): Promise<RecurringAvailabilityResponseDto[]> {
     const profile = await this.findDoctorProfileByUserId(userId);
     this.validateRecurringEntries(dto.recurringSchedule);
 
@@ -60,6 +63,131 @@ export class DoctorScheduleService {
     });
 
     return this.getRecurringSchedule(profile.id);
+  }
+
+  async listRecurringAvailability(
+    userId: string,
+  ): Promise<RecurringAvailabilityResponseDto[]> {
+    const profile = await this.findDoctorProfileByUserId(userId);
+    return this.getRecurringSchedule(profile.id);
+  }
+
+  async createRecurringAvailability(
+    userId: string,
+    dto: RecurringAvailabilityEntryDto,
+  ): Promise<RecurringAvailabilityResponseDto> {
+    const profile = await this.findDoctorProfileByUserId(userId);
+    const dayOfWeek = dayOfWeekFromName(dto.day);
+
+    if (dayOfWeek === null) {
+      throw new BadRequestException(`Invalid day: ${dto.day}`);
+    }
+
+    const start = parseTimeToMinutes(dto.startTime);
+    const end = parseTimeToMinutes(dto.endTime);
+
+    if (start === null || end === null || start >= end) {
+      throw new BadRequestException(`Invalid time range for ${dto.day}`);
+    }
+
+    const existing = await this.recurringRepository.find({
+      where: { doctorProfileId: profile.id, dayOfWeek },
+    });
+
+    this.assertNoRecurringConflicts(existing, { start, end }, dto.day);
+
+    const saved = await this.recurringRepository.save(
+      this.recurringRepository.create({
+        doctorProfileId: profile.id,
+        dayOfWeek,
+        startTime: dto.startTime,
+        endTime: dto.endTime,
+      }),
+    );
+
+    await this.refreshLegacyAvailability(profile.id);
+
+    return this.toRecurringResponse(saved);
+  }
+
+  async updateRecurringAvailability(
+    userId: string,
+    availabilityId: string,
+    dto: UpdateRecurringAvailabilityDto,
+  ): Promise<RecurringAvailabilityResponseDto> {
+    const profile = await this.findDoctorProfileByUserId(userId);
+    const existing = await this.recurringRepository.findOne({
+      where: { id: availabilityId, doctorProfileId: profile.id },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Recurring availability not found');
+    }
+
+    const day = dto.day ?? dayNameFromIndex(existing.dayOfWeek);
+    const dayOfWeek = dayOfWeekFromName(day);
+
+    if (dayOfWeek === null) {
+      throw new BadRequestException(`Invalid day: ${day}`);
+    }
+
+    const startTime = dto.startTime ?? existing.startTime.slice(0, 5);
+    const endTime = dto.endTime ?? existing.endTime.slice(0, 5);
+    const start = parseTimeToMinutes(startTime);
+    const end = parseTimeToMinutes(endTime);
+
+    if (start === null || end === null || start >= end) {
+      throw new BadRequestException(`Invalid time range for ${day}`);
+    }
+
+    const siblings = await this.recurringRepository.find({
+      where: { doctorProfileId: profile.id, dayOfWeek },
+    });
+
+    this.assertNoRecurringConflicts(
+      siblings.filter((row) => row.id !== availabilityId),
+      { start, end },
+      day,
+    );
+
+    existing.dayOfWeek = dayOfWeek;
+    existing.startTime = startTime;
+    existing.endTime = endTime;
+
+    const saved = await this.recurringRepository.save(existing);
+    await this.refreshLegacyAvailability(profile.id);
+
+    return this.toRecurringResponse(saved);
+  }
+
+  async deleteRecurringAvailability(
+    userId: string,
+    availabilityId: string,
+  ): Promise<void> {
+    const profile = await this.findDoctorProfileByUserId(userId);
+    const existing = await this.recurringRepository.findOne({
+      where: { id: availabilityId, doctorProfileId: profile.id },
+    });
+
+    if (!existing) {
+      throw new NotFoundException('Recurring availability not found');
+    }
+
+    await this.recurringRepository.delete(existing.id);
+    await this.refreshLegacyAvailability(profile.id);
+  }
+
+  async getAvailabilityForDate(
+    userId: string,
+    date: string,
+  ): Promise<ResolvedDayAvailabilityDto> {
+    const profile = await this.findDoctorProfileByUserId(userId);
+    const recurring = await this.loadRecurringSlots(profile.id);
+    const overrides = await this.loadOverridesForDate(profile.id, date);
+
+    return this.toResolvedDayDto(
+      resolveDayAvailability(recurring, overrides, new Date(`${date}T00:00:00`)),
+    );
   }
 
   async syncRecurringAvailability(
@@ -103,17 +231,13 @@ export class DoctorScheduleService {
 
   async getRecurringSchedule(
     doctorProfileId: string,
-  ): Promise<RecurringAvailabilityEntryDto[]> {
+  ): Promise<RecurringAvailabilityResponseDto[]> {
     const rows = await this.recurringRepository.find({
       where: { doctorProfileId },
-      order: { dayOfWeek: 'ASC' },
+      order: { dayOfWeek: 'ASC', startTime: 'ASC' },
     });
 
-    return rows.map((row) => ({
-      day: dayNameFromIndex(row.dayOfWeek),
-      startTime: row.startTime.slice(0, 5),
-      endTime: row.endTime.slice(0, 5),
-    }));
+    return rows.map((row) => this.toRecurringResponse(row));
   }
 
   async createOverride(
@@ -457,15 +581,9 @@ export class DoctorScheduleService {
   private validateRecurringEntries(
     entries: RecurringAvailabilityEntryDto[],
   ): void {
-    const seenDays = new Set<string>();
+    const byDay = new Map<string, Array<{ start: number; end: number }>>();
 
     for (const entry of entries) {
-      if (seenDays.has(entry.day)) {
-        throw new BadRequestException(`Duplicate day in schedule: ${entry.day}`);
-      }
-
-      seenDays.add(entry.day);
-
       const start = parseTimeToMinutes(entry.startTime);
       const end = parseTimeToMinutes(entry.endTime);
 
@@ -474,7 +592,82 @@ export class DoctorScheduleService {
           `Invalid time range for ${entry.day}`,
         );
       }
+
+      const dayRanges = byDay.get(entry.day) ?? [];
+
+      for (const existing of dayRanges) {
+        if (existing.start === start && existing.end === end) {
+          throw new BadRequestException(
+            `Duplicate availability entry for ${entry.day}`,
+          );
+        }
+
+        if (timeRangesOverlap(existing, { start, end })) {
+          throw new BadRequestException(
+            `Overlapping time slots on ${entry.day}`,
+          );
+        }
+      }
+
+      dayRanges.push({ start, end });
+      byDay.set(entry.day, dayRanges);
     }
+  }
+
+  private assertNoRecurringConflicts(
+    existingRows: DoctorRecurringAvailability[],
+    candidate: { start: number; end: number },
+    dayLabel: string,
+  ): void {
+    for (const row of existingRows) {
+      const start = parseTimeToMinutes(row.startTime);
+      const end = parseTimeToMinutes(row.endTime);
+
+      if (start === null || end === null) {
+        continue;
+      }
+
+      if (start === candidate.start && end === candidate.end) {
+        throw new BadRequestException(
+          `Duplicate availability entry for ${dayLabel}`,
+        );
+      }
+
+      if (timeRangesOverlap({ start, end }, candidate)) {
+        throw new BadRequestException(
+          `Overlapping time slots on ${dayLabel}`,
+        );
+      }
+    }
+  }
+
+  private async refreshLegacyAvailability(doctorProfileId: string): Promise<void> {
+    const rows = await this.recurringRepository.find({
+      where: { doctorProfileId },
+    });
+
+    const legacyAvailability = recurringSlotsToLegacyAvailability(
+      rows.map((row) => ({
+        dayOfWeek: row.dayOfWeek,
+        startTime: row.startTime,
+        endTime: row.endTime,
+      })),
+    );
+
+    await this.doctorProfileRepository.update(doctorProfileId, {
+      availability: legacyAvailability,
+    });
+  }
+
+  private toRecurringResponse(
+    row: DoctorRecurringAvailability,
+  ): RecurringAvailabilityResponseDto {
+    return {
+      id: row.id,
+      day: dayNameFromIndex(row.dayOfWeek),
+      startTime: row.startTime.slice(0, 5),
+      endTime: row.endTime.slice(0, 5),
+    };
   }
 
   private validateOverrideDto(dto: CreateAvailabilityOverrideDto): void {
