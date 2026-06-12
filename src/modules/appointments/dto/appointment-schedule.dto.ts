@@ -15,9 +15,9 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { AvailabilityOverrideType } from '../../../common/enums/availability-override-type.enum';
+import type { AllowedSlotDurationMinutes } from '../utils/schedule-resolution.util';
 import {
   ALLOWED_SLOT_DURATIONS_MINUTES,
-  AllowedSlotDurationMinutes,
   DEFAULT_SLOT_DURATION_MINUTES,
   WEEKDAY_NAMES,
 } from '../utils/schedule-resolution.util';
