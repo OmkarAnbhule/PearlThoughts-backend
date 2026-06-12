@@ -25,6 +25,7 @@ import { Roles } from '../../common/decorators/roles.decorator';
 import { UserType } from '../../common/enums/user-type.enum';
 import { RolesGuard } from '../../common/guards/roles.guard';
 import {
+  AppointmentResponseDto,
   AvailabilityDateQueryDto,
   CreateAvailabilityOverrideDto,
   OverrideSummaryDto,
@@ -35,6 +36,7 @@ import {
   ScheduleQueryDto,
   UpdateRecurringAvailabilityDto,
 } from '../appointments/dto/appointment-schedule.dto';
+import { AppointmentsService } from '../appointments/appointments.service';
 import { DoctorScheduleService } from '../appointments/doctor-schedule.service';
 import { AccountService } from './account.service';
 import { JwtAuthGuard } from './auth/jwt-auth.guard';
@@ -53,6 +55,7 @@ import { User } from './entities/user.entity';
 export class DoctorController {
   constructor(
     private readonly accountService: AccountService,
+    private readonly appointmentsService: AppointmentsService,
     private readonly doctorScheduleService: DoctorScheduleService,
   ) {}
 
@@ -145,7 +148,7 @@ export class DoctorController {
 
   @Post('availability/override')
   @ApiOperation({ summary: 'Create a custom date availability override' })
-  @ApiOkResponse({ type: OverrideSummaryDto })
+  @ApiCreatedResponse({ type: OverrideSummaryDto })
   createAvailabilityOverride(
     @CurrentUser() user: User,
     @Body() dto: CreateAvailabilityOverrideDto,
@@ -164,6 +167,15 @@ export class DoctorController {
       user.id,
       query.date,
     );
+  }
+
+  @Get('appointments')
+  @ApiOperation({ summary: 'List appointments for the authenticated doctor' })
+  @ApiOkResponse({ type: [AppointmentResponseDto] })
+  listDoctorAppointments(
+    @CurrentUser() user: User,
+  ): Promise<AppointmentResponseDto[]> {
+    return this.appointmentsService.listDoctorAppointments(user.id);
   }
 
   @Get('schedule/overrides')
