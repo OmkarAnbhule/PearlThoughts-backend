@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Between, EntityManager, Repository } from 'typeorm';
 import { AvailabilityOverrideType } from '../../common/enums/availability-override-type.enum';
 import { AppointmentStatus } from '../../common/enums/appointment-status.enum';
+import { UserType } from '../../common/enums/user-type.enum';
 import { Appointment } from '../account/entities/appointment.entity';
 import { DoctorAvailabilityOverride } from '../account/entities/doctor-availability-override.entity';
 import { DoctorProfile } from '../account/entities/doctor-profile.entity';
@@ -14,6 +15,7 @@ import { DoctorRecurringAvailability } from '../account/entities/doctor-recurrin
 import {
   CreateAvailabilityOverrideDto,
   DoctorScheduleViewDto,
+  DoctorSlotsResponseDto,
   OverrideSummaryDto,
   RecurringAvailabilityEntryDto,
   RecurringAvailabilityResponseDto,
@@ -24,6 +26,7 @@ import {
 import {
   dayNameFromIndex,
   dayOfWeekFromName,
+  DEFAULT_SLOT_DURATION_MINUTES,
   formatDateKey,
   generateBookableSlots,
   getWeekDateRange,
@@ -361,14 +364,38 @@ export class DoctorScheduleService {
   async getBookableSlots(
     doctorProfileId: string,
     date: string,
-  ): Promise<TimeRange[]> {
+    durationMinutes: number = DEFAULT_SLOT_DURATION_MINUTES,
+  ): Promise<DoctorSlotsResponseDto> {
+    await this.findOnboardedDoctorProfile(doctorProfileId);
+    this.assertBookableDate(date);
+
     const recurring = await this.loadRecurringSlots(doctorProfileId);
     const overrides = await this.loadOverridesForDate(doctorProfileId, date);
     const targetDate = new Date(`${date}T00:00:00`);
     const resolved = resolveDayAvailability(recurring, overrides, targetDate);
-    const slots = generateBookableSlots(resolved);
+    const generated = generateBookableSlots(resolved, durationMinutes);
+    const slots = await this.removeBookedSlots(
+      doctorProfileId,
+      date,
+      generated,
+    );
 
-    return this.removeBookedSlots(doctorProfileId, date, slots);
+    let message: string | undefined;
+    if (resolved.status === 'closed') {
+      message = 'Doctor is not available on this date';
+    } else if (resolved.status === 'unavailable') {
+      message = 'No availability configured for this date';
+    } else if (slots.length === 0) {
+      message = 'No bookable slots remain for this date';
+    }
+
+    return {
+      date,
+      durationMinutes,
+      availabilityStatus: resolved.status,
+      slots,
+      message,
+    };
   }
 
   async loadRecurringSlots(
@@ -688,6 +715,39 @@ export class DoctorScheduleService {
         throw new BadRequestException('Blocked override requires a valid blocked time range');
       }
     }
+  }
+
+  private assertBookableDate(date: string): void {
+    const today = formatDateKey(new Date());
+
+    if (date < today) {
+      throw new BadRequestException('Cannot fetch slots for a past date');
+    }
+  }
+
+  private async findOnboardedDoctorProfile(
+    doctorProfileId: string,
+  ): Promise<DoctorProfile> {
+    const profile = await this.doctorProfileRepository
+      .createQueryBuilder('doctor')
+      .innerJoin('doctor.user', 'user')
+      .where('doctor.id = :doctorProfileId', { doctorProfileId })
+      .andWhere('user.isActive = :isActive', { isActive: true })
+      .andWhere('user.userType = :userType', { userType: UserType.Doctor })
+      .andWhere('user.firstName IS NOT NULL')
+      .andWhere('user.lastName IS NOT NULL')
+      .andWhere('doctor.specialization IS NOT NULL')
+      .andWhere('doctor.qualification IS NOT NULL')
+      .andWhere('doctor.yearsOfExperience IS NOT NULL')
+      .andWhere('doctor.consultationFee IS NOT NULL')
+      .andWhere('doctor.availability IS NOT NULL')
+      .getOne();
+
+    if (!profile) {
+      throw new NotFoundException('Doctor not found');
+    }
+
+    return profile;
   }
 
   private async findDoctorProfileByUserId(userId: string): Promise<DoctorProfile> {

@@ -47,6 +47,9 @@ export interface ResolvedDayAvailability {
 }
 
 export const DEFAULT_SLOT_DURATION_MINUTES = 30;
+export const ALLOWED_SLOT_DURATIONS_MINUTES = [10, 15, 30] as const;
+export type AllowedSlotDurationMinutes =
+  (typeof ALLOWED_SLOT_DURATIONS_MINUTES)[number];
 
 export function normalizeTime(value: string): string {
   const match = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(value.trim());

@@ -15,7 +15,12 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { AvailabilityOverrideType } from '../../../common/enums/availability-override-type.enum';
-import { WEEKDAY_NAMES } from '../utils/schedule-resolution.util';
+import type { AllowedSlotDurationMinutes } from '../utils/schedule-resolution.util';
+import {
+  ALLOWED_SLOT_DURATIONS_MINUTES,
+  DEFAULT_SLOT_DURATION_MINUTES,
+  WEEKDAY_NAMES,
+} from '../utils/schedule-resolution.util';
 
 export class RecurringAvailabilityEntryDto {
   @ApiProperty({ example: 'monday', enum: WEEKDAY_NAMES })
@@ -144,6 +149,28 @@ export class BookableSlotDto {
   endTime: string;
 }
 
+export class DoctorSlotsResponseDto {
+  @ApiProperty({ example: '2026-06-20' })
+  date: string;
+
+  @ApiProperty({ example: DEFAULT_SLOT_DURATION_MINUTES })
+  durationMinutes: number;
+
+  @ApiProperty({
+    example: 'available',
+    enum: ['available', 'closed', 'modified', 'partially_blocked', 'unavailable'],
+  })
+  availabilityStatus: string;
+
+  @ApiProperty({ type: [BookableSlotDto] })
+  slots: BookableSlotDto[];
+
+  @ApiPropertyOptional({
+    example: 'No bookable slots remain for this date',
+  })
+  message?: string;
+}
+
 export class ResolvedDayAvailabilityDto {
   @ApiProperty({ example: '2026-06-09' })
   date: string;
@@ -200,6 +227,15 @@ export class SlotsQueryDto {
   @ApiProperty({ example: '2026-06-10' })
   @IsDateString()
   date: string;
+
+  @ApiPropertyOptional({
+    example: DEFAULT_SLOT_DURATION_MINUTES,
+    enum: ALLOWED_SLOT_DURATIONS_MINUTES,
+  })
+  @IsOptional()
+  @IsIn([...ALLOWED_SLOT_DURATIONS_MINUTES])
+  @Type(() => Number)
+  duration?: AllowedSlotDurationMinutes;
 }
 
 export class CreateAppointmentDto {
@@ -215,6 +251,15 @@ export class CreateAppointmentDto {
   @IsString()
   @IsNotEmpty()
   startTime: string;
+
+  @ApiPropertyOptional({
+    example: DEFAULT_SLOT_DURATION_MINUTES,
+    enum: ALLOWED_SLOT_DURATIONS_MINUTES,
+  })
+  @IsOptional()
+  @IsIn([...ALLOWED_SLOT_DURATIONS_MINUTES])
+  @Type(() => Number)
+  duration?: AllowedSlotDurationMinutes;
 
   @ApiPropertyOptional({ example: 'Follow-up consultation' })
   @IsOptional()
