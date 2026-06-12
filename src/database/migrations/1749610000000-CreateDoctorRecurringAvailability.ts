@@ -16,8 +16,6 @@ export class CreateDoctorRecurringAvailability1749610000000
         "created_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         "updated_at" TIMESTAMP WITH TIME ZONE NOT NULL DEFAULT now(),
         CONSTRAINT "PK_doctor_recurring_availability" PRIMARY KEY ("id"),
-        CONSTRAINT "UQ_doctor_recurring_availability_doctor_day"
-          UNIQUE ("doctor_profile_id", "day_of_week"),
         CONSTRAINT "CHK_doctor_recurring_availability_day_of_week"
           CHECK ("day_of_week" >= 0 AND "day_of_week" <= 6),
         CONSTRAINT "CHK_doctor_recurring_availability_time_range"
@@ -32,9 +30,18 @@ export class CreateDoctorRecurringAvailability1749610000000
       CREATE INDEX "IDX_doctor_recurring_availability_doctor_profile_id"
       ON "doctor_recurring_availability" ("doctor_profile_id")
     `);
+
+    await queryRunner.query(`
+      CREATE INDEX "IDX_doctor_recurring_availability_doctor_day"
+      ON "doctor_recurring_availability" ("doctor_profile_id", "day_of_week")
+    `);
   }
 
   public async down(queryRunner: QueryRunner): Promise<void> {
+    await queryRunner.query(`
+      DROP INDEX IF EXISTS "IDX_doctor_recurring_availability_doctor_day"
+    `);
+
     await queryRunner.query(`
       DROP INDEX IF EXISTS "IDX_doctor_recurring_availability_doctor_profile_id"
     `);
